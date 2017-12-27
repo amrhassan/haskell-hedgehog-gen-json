@@ -1,0 +1,38 @@
+name:                hedgehog-gen-json
+version:             0.0.0
+synopsis:            JSON generators for Hedgehog
+description:         Generate JSON values for Hedgehog tests
+homepage:            https://github.com/githubuser/haskell-hedgehog-gen-json#readme
+license:             MIT
+author:              Amr Hassan
+maintainer:          amr.hassan@gmail.com
+copyright:           2017 Amr Hassan
+category:            Test
+extra-source-files:
+- README.md
+
+dependencies:
+  - base >= 4.7 && < 5
+  - hedgehog
+  - aeson
+  - protolude
+  - hjsonschema
+  - bytestring
+  - lens
+  - vector
+  - scientific
+
+library:
+  source-dirs: src
+  exposed-modules:
+    - Hedgehog.Gen.JSON
+
+tests:
+  spec:
+    main: Spec.hs
+    source-dirs:
+      - src
+      - test
+    dependencies:
+      - tasty
+      - tasty-hedgehog
