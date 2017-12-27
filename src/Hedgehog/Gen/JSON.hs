@@ -3,7 +3,7 @@
 {-# LANGUAGE TemplateHaskell   #-}
 
 module Hedgehog.Gen.JSON
-  ( genValue
+  ( genJSON
   , Ranges(..)
   , NumberRange(..)
   , StringRange(..)
@@ -12,14 +12,14 @@ module Hedgehog.Gen.JSON
   ) where
 
 import           Control.Lens
-import           Data.Aeson        (Value, decodeStrict)
-import qualified Data.Aeson        as A
-import qualified Data.ByteString   as BS
-import qualified Data.Scientific   as Scientific
-import qualified Data.Vector       as Vector
+import qualified Data.Aeson           as A
+import qualified Data.ByteString      as BS
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Scientific      as Scientific
+import qualified Data.Vector          as Vector
 import           Hedgehog
-import qualified Hedgehog.Gen      as Gen
-import qualified JSONSchema.Draft4 as D4
+import qualified Hedgehog.Gen         as Gen
+import qualified JSONSchema.Draft4    as D4
 import           Protolude
 
 newtype NumberRange = NumberRange
@@ -50,21 +50,21 @@ makeLenses ''Ranges
 readSchema :: FilePath -> IO (Either Text D4.Schema)
 readSchema fp = do
   bytes <- BS.readFile fp
-  pure $ maybeToEither "failed to decode JSON Schema" (decodeStrict bytes)
+  pure $ maybeToEither "failed to decode JSON Schema" (A.decodeStrict bytes)
 
-genNull :: Gen Value
+genNull :: Gen A.Value
 genNull = pure A.Null
 
-genString :: StringRange -> Gen Value
+genString :: StringRange -> Gen A.Value
 genString sr = A.String <$> Gen.text (unStringRange sr) Gen.unicode
 
-genBool :: Gen Value
+genBool :: Gen A.Value
 genBool = A.Bool <$> Gen.bool
 
-genNumber :: NumberRange -> Gen Value
+genNumber :: NumberRange -> Gen A.Value
 genNumber nr = (A.Number . Scientific.fromFloatDigits) <$> Gen.double (unNumberRange nr)
 
-genArray :: Ranges -> Gen Value
+genArray :: Ranges -> Gen A.Value
 genArray ranges = do
   let gen =
         Gen.recursive
@@ -73,14 +73,14 @@ genArray ranges = do
           [genArray ranges, genObj ranges]
   (A.Array . Vector.fromList) <$> Gen.list (unArrayRange (ranges ^. arrayRange)) gen
 
-genObj :: Ranges -> Gen Value
+genObj :: Ranges -> Gen A.Value
 genObj ranges =
   A.object <$>
   Gen.list
     (unArrayRange (ranges ^. arrayRange))
     ((,) <$> Gen.text (unStringRange (ranges ^. stringRange)) Gen.unicode <*> genValue ranges)
 
-genValue :: Ranges -> Gen Value
+genValue :: Ranges -> Gen A.Value
 genValue ranges =
   Gen.choice
     [ genNull
@@ -91,5 +91,7 @@ genValue ranges =
     , genObj ranges
     ]
 
+genJSON :: Ranges -> Gen ByteString
+genJSON ranges = (LBS.toStrict . A.encode) <$> genValue ranges
 --genFakeJson :: D4.Schema -> Gen Value
 --genFakeJson = undefined
