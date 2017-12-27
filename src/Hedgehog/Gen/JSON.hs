@@ -66,19 +66,18 @@ genNumber nr = (A.Number . Scientific.fromFloatDigits) <$> Gen.double (unNumberR
 
 genArray :: Ranges -> Gen A.Value
 genArray ranges = do
-  let gen =
-        Gen.recursive
-          Gen.choice
-          [genBool, genNumber (ranges ^. numberRange), genString (ranges ^. stringRange)]
-          [genArray ranges, genObj ranges]
-  (A.Array . Vector.fromList) <$> Gen.list (unArrayRange (ranges ^. arrayRange)) gen
+  let gen = Gen.recursive Gen.choice [genBool, genNumber nr, genString sr] [genArray ranges, genObj ranges]
+  (A.Array . Vector.fromList) <$> Gen.list (unArrayRange ar) gen
+  where
+    nr = ranges ^. numberRange
+    sr = ranges ^. stringRange
+    ar = ranges ^. arrayRange
 
 genObj :: Ranges -> Gen A.Value
-genObj ranges =
-  A.object <$>
-  Gen.list
-    (unArrayRange (ranges ^. arrayRange))
-    ((,) <$> Gen.text (unStringRange (ranges ^. stringRange)) Gen.unicode <*> genValue ranges)
+genObj ranges = A.object <$> Gen.list ar ((,) <$> Gen.text sr Gen.unicode <*> genValue ranges)
+  where
+    sr = unStringRange (ranges ^. stringRange)
+    ar = unArrayRange (ranges ^. arrayRange)
 
 genValue :: Ranges -> Gen A.Value
 genValue ranges =
@@ -93,5 +92,6 @@ genValue ranges =
 
 genJSON :: Ranges -> Gen ByteString
 genJSON ranges = (LBS.toStrict . A.encode) <$> genValue ranges
+
 --genFakeJson :: D4.Schema -> Gen Value
 --genFakeJson = undefined
