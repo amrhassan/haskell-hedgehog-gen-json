@@ -8,6 +8,7 @@ import           Data.HashMap.Strict          (HashMap)
 import qualified Data.HashMap.Strict          as H
 import qualified Data.Set                     as S
 import           Hedgehog
+import qualified Hedgehog.Gen                 as Gen
 import           Hedgehog.Gen.JSON
 import           Hedgehog.Gen.JSON.JSONSchema
 import qualified Hedgehog.Range               as Range
@@ -34,16 +35,17 @@ prop_generatedUnconstrainedJSON =
 prop_constrainedValueFromEnum :: Property
 prop_constrainedValueFromEnum =
   property $ do
-    let values = Aeson.Null :| []
+    values <- forAll $  Gen.nonEmpty (Range.linear 1 10) (Gen.text (Range.linear 1 100) Gen.unicode)
     let schema =
           Schema
-          { _schemaType = SingleType IntegerType
-          , _schemaEnum = Just $ AnyKeywordEnum values
+          { _schemaType = SingleType StringType
+          , _schemaEnum = Just $ AnyKeywordEnum (Aeson.String <$> values)
           , _schemaConst = Nothing
           , _schemaRequired = Nothing
           , _schemaProperties = Nothing
           }
-    success
+    v <- forAll $ genConstrainedJSON ranges schema
+    assert $ isJust $ find (== Aeson.decodeStrict v) (Just <$> values)
 
 prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
