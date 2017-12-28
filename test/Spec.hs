@@ -1,6 +1,5 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
 
 import qualified Data.Aeson          as Aeson
 import           Hedgehog
@@ -23,7 +22,7 @@ prop_generatedUnconstrainedJSON :: Property
 prop_generatedUnconstrainedJSON =
   property $ do
     v <- forAll $ genJSON ranges
-    assert $ isJust ((Aeson.decodeStrict v) :: Maybe Aeson.Value)
+    assert $ isJust (Aeson.decodeStrict v :: Maybe Aeson.Value)
 
 tests :: TestTree
 tests =

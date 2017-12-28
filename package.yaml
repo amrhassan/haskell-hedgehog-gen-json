@@ -21,6 +21,8 @@ dependencies:
   - lens
   - vector
   - scientific
+  - text
+  - containers
 
 library:
   source-dirs: src
