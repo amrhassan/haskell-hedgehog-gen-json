@@ -20,7 +20,7 @@ genValue ranges schema
     case schema ^. schemaEnum of
       Just (AnyKeywordEnum vs) -> genValueFromEnum vs
       Nothing                  -> Gen.element []
-  | otherwise = Unconstrained.genValue ranges
+  | otherwise = undefined -- TODO
 
 genValueFromEnum :: NonEmpty Aeson.Value -> Gen Aeson.Value
 genValueFromEnum = Gen.element . toList
