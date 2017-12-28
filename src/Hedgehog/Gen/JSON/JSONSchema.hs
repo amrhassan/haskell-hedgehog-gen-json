@@ -9,7 +9,7 @@ module Hedgehog.Gen.JSON.JSONSchema where
 
 import           Control.Lens       (makeLenses)
 import           Control.Monad.Fail
-import           Data.Aeson         (withObject, withText, (.:))
+import           Data.Aeson         (withObject, withText, (.:), (.:?))
 import qualified Data.Aeson         as Aeson
 import qualified Data.ByteString    as BS
 import qualified Data.Set           as Set
@@ -33,6 +33,7 @@ instance Aeson.FromJSON PrimitiveType where
       "array" -> pure ArrayType
       "number" -> pure NumberType
       "string" -> pure StringType
+      "object" -> pure ObjectType
       _ -> fail "Primitive type is not one of (null, bool, array, number, string)"
   parseJSON _ = fail "type is not a JSON String"
 
@@ -63,7 +64,7 @@ data Schema = Schema
 makeLenses ''Schema
 
 instance Aeson.FromJSON Schema where
-  parseJSON = withObject "Schema" $ \obj -> Schema <$> obj .: "schema" <*> obj .: "enum" <*> obj .: "const"
+  parseJSON = withObject "Schema" $ \obj -> Schema <$> obj .: "type" <*> obj .:? "enum" <*> obj .:? "const"
 
 read :: FilePath -> IO (Either Text Schema)
 read fp = do
