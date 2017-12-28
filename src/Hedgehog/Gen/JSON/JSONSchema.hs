@@ -7,13 +7,14 @@
 
 module Hedgehog.Gen.JSON.JSONSchema where
 
-import           Control.Lens       (makeLenses)
+import           Control.Lens        (makeLenses)
 import           Control.Monad.Fail
-import           Data.Aeson         (withObject, withText, (.:), (.:?))
-import qualified Data.Aeson         as Aeson
-import qualified Data.ByteString    as BS
-import qualified Data.Set           as Set
-import qualified Data.Text          as Text
+import           Data.Aeson          (withObject, withText, (.:), (.:?))
+import qualified Data.Aeson          as Aeson
+import qualified Data.ByteString     as BS
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Set            as Set
+import qualified Data.Text           as Text
 import           Protolude
 
 data PrimitiveType
@@ -23,6 +24,7 @@ data PrimitiveType
   | ArrayType
   | NumberType
   | StringType
+  | IntegerType
   deriving (Show, Eq, Ord)
 
 instance Aeson.FromJSON PrimitiveType where
@@ -31,6 +33,7 @@ instance Aeson.FromJSON PrimitiveType where
       "null" -> pure NullType
       "bool" -> pure BooleanType
       "array" -> pure ArrayType
+      "integer" -> pure IntegerType
       "number" -> pure NumberType
       "string" -> pure StringType
       "object" -> pure ObjectType
@@ -48,23 +51,42 @@ instance Aeson.FromJSON AnyKeywordType where
   parseJSON _ = fail "type must be either a string or an array of strings"
 
 newtype AnyKeywordEnum =
-  KeywordEnum (NonEmpty Aeson.Value)
+  AnyKeywordEnum (NonEmpty Aeson.Value)
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 newtype AnyKeywordConst =
-  KeywordConst Aeson.Value
+  AnyKeywordConst Aeson.Value
+  deriving (Generic, Eq, Show, Aeson.FromJSON)
+
+newtype ObjectKeywordProperties =
+  ObjectKeywordProperties (HM.HashMap Text Schema)
+  deriving (Generic, Eq, Show)
+
+instance Aeson.FromJSON ObjectKeywordProperties
+
+newtype ObjectKeywordRequired =
+  ObjectKeywordRequired (Set Text)
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 data Schema = Schema
   { _schemaType :: AnyKeywordType
   , _enum       :: Maybe AnyKeywordEnum
   , _const      :: Maybe AnyKeywordConst
+  , _properties :: Maybe ObjectKeywordProperties
+  , _required   :: Maybe ObjectKeywordRequired
   } deriving (Generic, Eq, Show)
+
+objectSchema :: Schema
+objectSchema =
+  Schema
+  {_schemaType = SingleType ObjectType, _enum = Nothing, _const = Nothing, _required = Nothing, _properties = Nothing}
 
 makeLenses ''Schema
 
 instance Aeson.FromJSON Schema where
-  parseJSON = withObject "Schema" $ \obj -> Schema <$> obj .: "type" <*> obj .:? "enum" <*> obj .:? "const"
+  parseJSON =
+    withObject "Schema" $ \obj ->
+      Schema <$> obj .: "type" <*> obj .:? "enum" <*> obj .:? "const" <*> obj .:? "properties" <*> obj .:? "required"
 
 read :: FilePath -> IO (Either Text Schema)
 read fp = do

@@ -22,6 +22,7 @@ dependencies:
   - scientific
   - text
   - containers
+  - unordered-containers
 
 library:
   source-dirs: src

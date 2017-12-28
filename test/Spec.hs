@@ -2,7 +2,11 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+import           Control.Lens                 ((^.))
 import qualified Data.Aeson                   as Aeson
+import           Data.HashMap.Strict          (HashMap)
+import qualified Data.HashMap.Strict          as H
+import qualified Data.Set                     as S
 import           Hedgehog
 import           Hedgehog.Gen.JSON
 import           Hedgehog.Gen.JSON.JSONSchema
@@ -31,9 +35,35 @@ prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
   where
     schemaJson =
-      "{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"integer\"},\"user_domain\":{\"type\":\"integer\"}},\"required\":[\"user_id\"]}"
+      "{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"integer\"},\"user_domain\":{\"type\":\"string\"}},\"required\":[\"user_id\"]}"
     decoded :: Either P.String Schema = Aeson.eitherDecode schemaJson
-    expected = Schema {_schemaType = SingleType ObjectType, _enum = Nothing, _const = Nothing}
+    expected =
+        Schema
+        { _schemaType = SingleType ObjectType
+        , _enum = Nothing
+        , _const = Nothing
+        , _required = Just (ObjectKeywordRequired $ S.fromList ["user_id"])
+        , _properties =
+            (Just . ObjectKeywordProperties)
+              (H.fromList
+                 [ ( "user_id"
+                   , Schema
+                     { _schemaType = SingleType IntegerType
+                     , _enum = Nothing
+                     , _const = Nothing
+                     , _properties = Nothing
+                     , _required = Nothing
+                     })
+                 , ( "user_domain"
+                   , Schema
+                     { _schemaType = SingleType StringType
+                     , _enum = Nothing
+                     , _const = Nothing
+                     , _properties = Nothing
+                     , _required = Nothing
+                     })
+                 ])
+        }
 
 tests :: TestTree
 tests =
