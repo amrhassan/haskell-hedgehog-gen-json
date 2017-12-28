@@ -65,7 +65,7 @@ makeLenses ''Schema
 instance Aeson.FromJSON Schema where
   parseJSON = withObject "Schema" $ \obj -> Schema <$> obj .: "schema" <*> obj .: "enum" <*> obj .: "const"
 
-readSchema :: FilePath -> IO (Either Text Schema)
-readSchema fp = do
+read :: FilePath -> IO (Either Text Schema)
+read fp = do
   bytes <- BS.readFile fp
   pure $ maybeToEither "failed to decode JSON Schema" (Aeson.decodeStrict bytes)

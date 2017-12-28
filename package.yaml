@@ -16,7 +16,6 @@ dependencies:
   - hedgehog
   - aeson
   - protolude
-  - hjsonschema
   - bytestring
   - lens
   - vector
