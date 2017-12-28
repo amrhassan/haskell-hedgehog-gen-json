@@ -18,9 +18,10 @@ genValue :: Ranges -> Schema -> Gen Aeson.Value
 genValue ranges schema
   | isJust (schema ^. schemaEnum) =
     case schema ^. schemaEnum of
-      Just (AnyKeywordEnum vs) -> genValueFromEnum vs
-      Nothing                  -> Gen.element []
+      Just (AnyKeywordEnum vs) -> (Gen.element . toList) vs
+      Nothing                  -> empty
+  | isJust (schema ^. schemaConst) =
+    case schema ^. schemaConst of
+      Just (AnyKeywordConst c) -> pure c
+      Nothing                  -> empty
   | otherwise = undefined -- TODO
-
-genValueFromEnum :: NonEmpty Aeson.Value -> Gen Aeson.Value
-genValueFromEnum = Gen.element . toList

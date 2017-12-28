@@ -3,7 +3,9 @@
 
 module Hedgehog.Gen.JSON
   ( genJSON
+  , genJSONValue
   , genConstrainedJSON
+  , genConstrainedJSONValue
   , Schema
   , readSchema
   , Ranges(..)
@@ -32,7 +34,13 @@ readSchema fp = do
   pure $ maybeToEither "failed to decode JSON Schema" (Aeson.decodeStrict bytes)
 
 genJSON :: Ranges -> Gen ByteString
-genJSON ranges = (LBS.toStrict . Aeson.encode) <$> Unconstrained.genValue ranges
+genJSON ranges = (LBS.toStrict . Aeson.encode) <$> genJSONValue ranges
+
+genJSONValue :: Ranges -> Gen Aeson.Value
+genJSONValue = Unconstrained.genValue
 
 genConstrainedJSON :: Ranges -> Schema -> Gen ByteString
-genConstrainedJSON ranges schema = (LBS.toStrict . Aeson.encode) <$> Constrained.genValue ranges schema
+genConstrainedJSON ranges schema = (LBS.toStrict . Aeson.encode) <$> genConstrainedJSONValue ranges schema
+
+genConstrainedJSONValue :: Ranges -> Schema -> Gen Aeson.Value
+genConstrainedJSONValue = Constrained.genValue

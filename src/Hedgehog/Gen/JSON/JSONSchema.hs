@@ -25,7 +25,7 @@ data PrimitiveType
   | NumberType
   | StringType
   | IntegerType
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Enum, Bounded)
 
 instance Aeson.FromJSON PrimitiveType where
   parseJSON (Aeson.String t) =
