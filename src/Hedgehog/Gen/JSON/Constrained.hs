@@ -1,19 +1,26 @@
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE TemplateHaskell   #-}
 
-module Hedgehog.Gen.JSON.Constrained where
+module Hedgehog.Gen.JSON.Constrained
+  ( genValue
+  , Schema
+  ) where
 
 import           Control.Lens
-import qualified Data.Aeson                      as A
+import qualified Data.Aeson                      as Aeson
 import           Hedgehog
 import qualified Hedgehog.Gen                    as Gen
-import           Hedgehog.Gen.JSON.JSONSchema    (Schema(..))
+import           Hedgehog.Gen.JSON.JSONSchema
 import           Hedgehog.Gen.JSON.Ranges
 import qualified Hedgehog.Gen.JSON.Unconstrained as Unconstrained
 import           Protolude
 
-genValue :: Ranges -> Schema -> Gen A.Value
-genValue = undefined
+genValue :: Ranges -> Schema -> Gen Aeson.Value
+genValue ranges schema
+  | isJust (schema ^. schemaEnum) =
+    case schema ^. schemaEnum of
+      Just (AnyKeywordEnum vs) -> genValueFromEnum vs
+      Nothing                  -> Gen.element []
+  | otherwise = Unconstrained.genValue ranges
 
-genAnyFromEnum :: NonEmpty A.Value -> Gen A.Value
-genAnyFromEnum = Gen.element . toList
+genValueFromEnum :: NonEmpty Aeson.Value -> Gen Aeson.Value
+genValueFromEnum = Gen.element . toList

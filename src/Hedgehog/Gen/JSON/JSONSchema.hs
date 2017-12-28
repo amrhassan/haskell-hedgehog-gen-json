@@ -51,7 +51,7 @@ instance Aeson.FromJSON AnyKeywordType where
   parseJSON _ = fail "type must be either a string or an array of strings"
 
 newtype AnyKeywordEnum =
-  AnyKeywordEnum (NonEmpty Aeson.Value)
+  AnyKeywordEnum (NonEmpty Aeson.Value) -- TODO: should be a NonEmptySet
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 newtype AnyKeywordConst =
@@ -70,16 +70,16 @@ newtype ObjectKeywordRequired =
 
 data Schema = Schema
   { _schemaType :: AnyKeywordType
-  , _enum       :: Maybe AnyKeywordEnum
-  , _const      :: Maybe AnyKeywordConst
-  , _properties :: Maybe ObjectKeywordProperties
-  , _required   :: Maybe ObjectKeywordRequired
+  , _schemaEnum       :: Maybe AnyKeywordEnum
+  , _schemaConst      :: Maybe AnyKeywordConst
+  , _schemaProperties :: Maybe ObjectKeywordProperties
+  , _schemaRequired   :: Maybe ObjectKeywordRequired
   } deriving (Generic, Eq, Show)
 
 objectSchema :: Schema
 objectSchema =
   Schema
-  {_schemaType = SingleType ObjectType, _enum = Nothing, _const = Nothing, _required = Nothing, _properties = Nothing}
+  {_schemaType = SingleType ObjectType, _schemaEnum = Nothing, _schemaConst = Nothing, _schemaRequired = Nothing, _schemaProperties = Nothing}
 
 makeLenses ''Schema
 

@@ -31,6 +31,20 @@ prop_generatedUnconstrainedJSON =
     v <- forAll $ genJSON ranges
     assert $ isJust (Aeson.decodeStrict v :: Maybe Aeson.Value)
 
+prop_constrainedValueFromEnum :: Property
+prop_constrainedValueFromEnum =
+  property $ do
+    let values = Aeson.Null :| []
+    let schema =
+          Schema
+          { _schemaType = SingleType IntegerType
+          , _schemaEnum = Just $ AnyKeywordEnum values
+          , _schemaConst = Nothing
+          , _schemaRequired = Nothing
+          , _schemaProperties = Nothing
+          }
+    success
+
 prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
   where
@@ -38,32 +52,32 @@ prop_decodesSchema = property $ decoded === Right expected
       "{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"integer\"},\"user_domain\":{\"type\":\"string\"}},\"required\":[\"user_id\"]}"
     decoded :: Either P.String Schema = Aeson.eitherDecode schemaJson
     expected =
-        Schema
-        { _schemaType = SingleType ObjectType
-        , _enum = Nothing
-        , _const = Nothing
-        , _required = Just (ObjectKeywordRequired $ S.fromList ["user_id"])
-        , _properties =
-            (Just . ObjectKeywordProperties)
-              (H.fromList
-                 [ ( "user_id"
-                   , Schema
-                     { _schemaType = SingleType IntegerType
-                     , _enum = Nothing
-                     , _const = Nothing
-                     , _properties = Nothing
-                     , _required = Nothing
-                     })
-                 , ( "user_domain"
-                   , Schema
-                     { _schemaType = SingleType StringType
-                     , _enum = Nothing
-                     , _const = Nothing
-                     , _properties = Nothing
-                     , _required = Nothing
-                     })
-                 ])
-        }
+      Schema
+      { _schemaType = SingleType ObjectType
+      , _schemaEnum = Nothing
+      , _schemaConst = Nothing
+      , _schemaRequired = Just (ObjectKeywordRequired $ S.fromList ["user_id"])
+      , _schemaProperties =
+          (Just . ObjectKeywordProperties)
+            (H.fromList
+               [ ( "user_id"
+                 , Schema
+                   { _schemaType = SingleType IntegerType
+                   , _schemaEnum = Nothing
+                   , _schemaConst = Nothing
+                   , _schemaProperties = Nothing
+                   , _schemaRequired = Nothing
+                   })
+               , ( "user_domain"
+                 , Schema
+                   { _schemaType = SingleType StringType
+                   , _schemaEnum = Nothing
+                   , _schemaConst = Nothing
+                   , _schemaProperties = Nothing
+                   , _schemaRequired = Nothing
+                   })
+               ])
+      }
 
 tests :: TestTree
 tests =
@@ -71,6 +85,7 @@ tests =
     "Hedgehog.Gen.JSON tests"
     [ testProperty "Generated unconstrained values are valid JSON" prop_generatedUnconstrainedJSON
     , testProperty "Decodes JSON Schema" prop_decodesSchema
+    , testProperty "Generates constrained values from JSON Schema enum when present" prop_constrainedValueFromEnum
     ]
 
 main :: IO ()

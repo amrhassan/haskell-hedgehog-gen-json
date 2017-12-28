@@ -4,6 +4,7 @@
 module Hedgehog.Gen.JSON
   ( genJSON
   , genConstrainedJSON
+  , Schema
   , Ranges(..)
   , NumberRange(..)
   , StringRange(..)
