@@ -14,6 +14,8 @@ import qualified Data.Aeson          as Aeson
 import qualified Data.ByteString     as BS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty  as NonEmpty
+import           Data.Scientific     (Scientific)
+import qualified Data.Scientific     as Scientific
 import qualified Data.Text           as Text
 import           Protolude
 
@@ -58,6 +60,26 @@ newtype AnyKeywordConst =
   AnyKeywordConst Aeson.Value
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
+newtype NumberKeywordMultipleOf =
+  NumberKeywordMultipleOf Scientific
+  deriving (Generic, Eq, Show, Aeson.FromJSON)
+
+newtype NumberKeywordMaximum =
+  NumberKeywordMaximum Scientific
+  deriving (Generic, Eq, Show, Aeson.FromJSON)
+
+newtype NumberKeywordExclusiveMaximum =
+  NumberKeywordExclusiveMaximum Scientific
+  deriving (Generic, Eq, Show, Aeson.FromJSON)
+
+newtype NumberKeywordMinimum =
+  NumberKeywordMinimum Scientific
+  deriving (Generic, Eq, Show, Aeson.FromJSON)
+
+newtype NumberKeywordExclusiveMinimum =
+  NumberKeywordExclusiveMinimum Scientific
+  deriving (Generic, Eq, Show, Aeson.FromJSON)
+
 newtype ObjectKeywordProperties =
   ObjectKeywordProperties (HM.HashMap Text Schema)
   deriving (Generic, Eq, Show)
@@ -69,11 +91,16 @@ newtype ObjectKeywordRequired =
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 data Schema = Schema
-  { _schemaType       :: AnyKeywordType
-  , _schemaEnum       :: Maybe AnyKeywordEnum
-  , _schemaConst      :: Maybe AnyKeywordConst
-  , _schemaProperties :: Maybe ObjectKeywordProperties
-  , _schemaRequired   :: Maybe ObjectKeywordRequired
+  { _schemaType             :: AnyKeywordType
+  , _schemaEnum             :: Maybe AnyKeywordEnum
+  , _schemaConst            :: Maybe AnyKeywordConst
+  , _schemaProperties       :: Maybe ObjectKeywordProperties
+  , _schemaRequired         :: Maybe ObjectKeywordRequired
+  , _schemaMultipleOf       :: Maybe NumberKeywordMultipleOf
+  , _schemaMaximum          :: Maybe NumberKeywordMaximum
+  , _schemaExclusiveMaximum :: Maybe NumberKeywordExclusiveMaximum
+  , _schemaMinimum          :: Maybe NumberKeywordMinimum
+  , _schemaExclusiveMinimum :: Maybe NumberKeywordExclusiveMinimum
   } deriving (Generic, Eq, Show)
 
 nullSchema :: Schema
@@ -84,6 +111,11 @@ nullSchema =
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
   , _schemaProperties = Nothing
+  , _schemaMultipleOf = Nothing
+  , _schemaMaximum = Nothing
+  , _schemaMinimum = Nothing
+  , _schemaExclusiveMaximum = Nothing
+  , _schemaExclusiveMinimum = Nothing
   }
 
 booleanSchema :: Schema
@@ -94,6 +126,11 @@ booleanSchema =
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
   , _schemaProperties = Nothing
+  , _schemaMultipleOf = Nothing
+  , _schemaMaximum = Nothing
+  , _schemaMinimum = Nothing
+  , _schemaExclusiveMaximum = Nothing
+  , _schemaExclusiveMinimum = Nothing
   }
 
 objectSchema :: Schema
@@ -104,6 +141,11 @@ objectSchema =
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
   , _schemaProperties = Nothing
+  , _schemaMultipleOf = Nothing
+  , _schemaMaximum = Nothing
+  , _schemaMinimum = Nothing
+  , _schemaExclusiveMaximum = Nothing
+  , _schemaExclusiveMinimum = Nothing
   }
 
 arraySchema :: Schema
@@ -114,6 +156,11 @@ arraySchema =
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
   , _schemaProperties = Nothing
+  , _schemaMultipleOf = Nothing
+  , _schemaMaximum = Nothing
+  , _schemaMinimum = Nothing
+  , _schemaExclusiveMaximum = Nothing
+  , _schemaExclusiveMinimum = Nothing
   }
 
 numberSchema :: Schema
@@ -124,6 +171,11 @@ numberSchema =
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
   , _schemaProperties = Nothing
+  , _schemaMultipleOf = Nothing
+  , _schemaMaximum = Nothing
+  , _schemaMinimum = Nothing
+  , _schemaExclusiveMaximum = Nothing
+  , _schemaExclusiveMinimum = Nothing
   }
 
 integerSchema :: Schema
@@ -134,6 +186,11 @@ integerSchema =
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
   , _schemaProperties = Nothing
+  , _schemaMultipleOf = Nothing
+  , _schemaMaximum = Nothing
+  , _schemaMinimum = Nothing
+  , _schemaExclusiveMaximum = Nothing
+  , _schemaExclusiveMinimum = Nothing
   }
 
 stringSchema :: Schema
@@ -144,6 +201,11 @@ stringSchema =
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
   , _schemaProperties = Nothing
+  , _schemaMultipleOf = Nothing
+  , _schemaMaximum = Nothing
+  , _schemaMinimum = Nothing
+  , _schemaExclusiveMaximum = Nothing
+  , _schemaExclusiveMinimum = Nothing
   }
 
 makeLenses ''Schema
@@ -151,7 +213,12 @@ makeLenses ''Schema
 instance Aeson.FromJSON Schema where
   parseJSON =
     withObject "Schema" $ \obj ->
-      Schema <$> obj .: "type" <*> obj .:? "enum" <*> obj .:? "const" <*> obj .:? "properties" <*> obj .:? "required"
+      Schema <$> obj .: "type" <*> obj .:? "enum" <*> obj .:? "const" <*> obj .:? "properties" <*> obj .:? "required" <*>
+      obj .:? "multipleOf" <*>
+      obj .:? "maximum" <*>
+      obj .:? "exclusiveMaximum" <*>
+      obj .:? "minimum" <*>
+      obj .:? "exclusiveMinimum"
 
 read :: FilePath -> IO (Either Text Schema)
 read fp = do

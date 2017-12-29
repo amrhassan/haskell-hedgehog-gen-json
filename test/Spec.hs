@@ -2,9 +2,10 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import           Control.Lens                 (over)
+import           Control.Lens                 (over, set)
 import qualified Data.Aeson                   as Aeson
 import qualified Data.HashMap.Strict          as H
+import qualified Data.Scientific              as Scientific
 import           Hedgehog
 import qualified Hedgehog.Gen                 as Gen
 import           Hedgehog.Gen.JSON
@@ -24,13 +25,8 @@ ranges =
   , _objectRange = ObjectRange {unObjectRange = Range.linear 0 5}
   }
 
-genSchema :: Gen Schema
-genSchema =
-  Gen.element [nullSchema, booleanSchema, objectSchema, arraySchema, numberSchema, integerSchema, stringSchema]
-
 --genTypes :: Gen AnyKeywordType
 --genTypes = Gen.choice [SingleType <$> Gen.enumBounded, MultipleTypes <$> Gen.set (Range.linear 1 10) Gen.enumBounded]
-
 prop_generatedUnconstrainedJSON :: Property
 prop_generatedUnconstrainedJSON =
   property $ do
@@ -53,6 +49,22 @@ prop_constrainedValueFromConst =
     v <- forAll $ genConstrainedJSON ranges schema
     Aeson.decodeStrict v === Just c
 
+prop_constrainedNumber :: Property
+prop_constrainedNumber =
+  property $ do
+    vmin <- forAll $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 0 5000)
+    vminEx <- forAll $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 0 5000)
+    vmax <- forAll $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 6000 10000)
+    vmaxEx <- forAll $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 6000 10000)
+    let schema =
+          (set schemaMinimum (Just $ NumberKeywordMinimum vmin) .
+           set schemaMaximum (Just $ NumberKeywordMaximum vmax) .
+           set schemaExclusiveMinimum (Just $ NumberKeywordExclusiveMinimum vminEx) .
+           set schemaExclusiveMaximum (Just $ NumberKeywordExclusiveMaximum vmaxEx))
+            numberSchema
+    (Aeson.Number v) <- forAll $ genConstrainedJSONValue ranges schema
+    assert (v >= vmin && v > vminEx && v <= vmax && v < vmaxEx)
+
 prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
   where
@@ -65,26 +77,13 @@ prop_decodesSchema = property $ decoded === Right expected
       , _schemaEnum = Nothing
       , _schemaConst = Nothing
       , _schemaRequired = Just (ObjectKeywordRequired ["user_id"])
+      , _schemaMultipleOf = Nothing
+      , _schemaMaximum = Nothing
+      , _schemaMinimum = Nothing
+      , _schemaExclusiveMaximum = Nothing
+      , _schemaExclusiveMinimum = Nothing
       , _schemaProperties =
-          (Just . ObjectKeywordProperties)
-            (H.fromList
-               [ ( "user_id"
-                 , Schema
-                   { _schemaType = SingleType IntegerType
-                   , _schemaEnum = Nothing
-                   , _schemaConst = Nothing
-                   , _schemaProperties = Nothing
-                   , _schemaRequired = Nothing
-                   })
-               , ( "user_domain"
-                 , Schema
-                   { _schemaType = SingleType StringType
-                   , _schemaEnum = Nothing
-                   , _schemaConst = Nothing
-                   , _schemaProperties = Nothing
-                   , _schemaRequired = Nothing
-                   })
-               ])
+          (Just . ObjectKeywordProperties) (H.fromList [("user_id", integerSchema), ("user_domain", stringSchema)])
       }
 
 tests :: TestTree
@@ -95,7 +94,12 @@ tests =
     , testProperty "Decodes JSON Schema" prop_decodesSchema
     , testProperty "Generates constrained values from JSON Schema enum when present" prop_constrainedValueFromEnum
     , testProperty "Generates constrained values from JSON Schema const when present" prop_constrainedValueFromConst
+    , testProperty "Generates a constrained number" prop_constrainedNumber
     ]
 
 main :: IO ()
 main = defaultMain tests
+
+genSchema :: Gen Schema
+genSchema =
+  Gen.element [nullSchema, booleanSchema, objectSchema, arraySchema, numberSchema, integerSchema, stringSchema]

@@ -44,3 +44,5 @@ genNullValue = Gen.constant Aeson.Null
 
 genBooleanValue :: Gen Aeson.Value
 genBooleanValue = Aeson.Bool <$> Gen.bool
+
+--genNumberValue :: Gen Aeson.Value
