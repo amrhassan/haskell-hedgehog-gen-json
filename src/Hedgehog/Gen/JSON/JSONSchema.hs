@@ -42,80 +42,80 @@ instance Aeson.FromJSON PrimitiveType where
       _ -> fail "Primitive type is not one of (null, bool, array, number, string)"
   parseJSON _ = fail "type is not a JSON String"
 
-data AnyKeywordType
+data AnyConstraintType
   = SingleType PrimitiveType
   | MultipleTypes (NonEmpty PrimitiveType)
   deriving (Eq, Show)
 
-instance Aeson.FromJSON AnyKeywordType where
+instance Aeson.FromJSON AnyConstraintType where
   parseJSON str@(Aeson.String _) = SingleType <$> Aeson.parseJSON str
   parseJSON (Aeson.Array ts) = (MultipleTypes . NonEmpty.fromList . toList) <$> traverse Aeson.parseJSON ts
   parseJSON _ = fail "type must be either a string or an array of strings"
 
-newtype AnyKeywordEnum =
-  AnyKeywordEnum (NonEmpty Aeson.Value)
+newtype AnyConstraintEnum =
+  AnyConstraintEnum (NonEmpty Aeson.Value)
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype AnyKeywordConst =
-  AnyKeywordConst Aeson.Value
+newtype AnyConstraintConst =
+  AnyConstraintConst Aeson.Value
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberKeywordMultipleOf =
-  NumberKeywordMultipleOf Scientific
+newtype NumberConstraintMultipleOf =
+  NumberConstraintMultipleOf Scientific
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberKeywordMaximum =
-  NumberKeywordMaximum Scientific
+newtype NumberConstraintMaximum =
+  NumberConstraintMaximum Scientific
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberKeywordExclusiveMaximum =
-  NumberKeywordExclusiveMaximum Scientific
+newtype NumberConstraintExclusiveMaximum =
+  NumberConstraintExclusiveMaximum Scientific
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberKeywordMinimum =
-  NumberKeywordMinimum Scientific
+newtype NumberConstraintMinimum =
+  NumberConstraintMinimum Scientific
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberKeywordExclusiveMinimum =
-  NumberKeywordExclusiveMinimum Scientific
+newtype NumberConstraintExclusiveMinimum =
+  NumberConstraintExclusiveMinimum Scientific
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype StringKeywordPattern =
-  StringKeywordPattern Text
+newtype StringConstraintPattern =
+  StringConstraintPattern Text
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype StringKeywordMaxLength =
-  StringKeywordMaxLength Int
+newtype StringConstraintMaxLength =
+  StringConstraintMaxLength Int
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype StringKeywordMinLength =
-  StringKeywordMinLength Int
+newtype StringConstraintMinLength =
+  StringConstraintMinLength Int
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype ObjectKeywordProperties =
-  ObjectKeywordProperties (HM.HashMap Text Schema)
+newtype ObjectConstraintProperties =
+  ObjectConstraintProperties (HM.HashMap Text Schema)
   deriving (Generic, Eq, Show)
 
-instance Aeson.FromJSON ObjectKeywordProperties
+instance Aeson.FromJSON ObjectConstraintProperties
 
 newtype ObjectKeywordRequired =
   ObjectKeywordRequired [Text]
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 data Schema = Schema
-  { _schemaType             :: AnyKeywordType
-  , _schemaEnum             :: Maybe AnyKeywordEnum
-  , _schemaConst            :: Maybe AnyKeywordConst
-  , _schemaProperties       :: Maybe ObjectKeywordProperties
+  { _schemaType             :: AnyConstraintType
+  , _schemaEnum             :: Maybe AnyConstraintEnum
+  , _schemaConst            :: Maybe AnyConstraintConst
+  , _schemaProperties       :: Maybe ObjectConstraintProperties
   , _schemaRequired         :: Maybe ObjectKeywordRequired
-  , _schemaMultipleOf       :: Maybe NumberKeywordMultipleOf
-  , _schemaMaximum          :: Maybe NumberKeywordMaximum
-  , _schemaExclusiveMaximum :: Maybe NumberKeywordExclusiveMaximum
-  , _schemaMinimum          :: Maybe NumberKeywordMinimum
-  , _schemaExclusiveMinimum :: Maybe NumberKeywordExclusiveMinimum
-  , _schemaPattern          :: Maybe StringKeywordPattern
-  , _schemaMaxLength        :: Maybe StringKeywordMaxLength
-  , _schemaMinLength        :: Maybe StringKeywordMinLength
+  , _schemaMultipleOf       :: Maybe NumberConstraintMultipleOf
+  , _schemaMaximum          :: Maybe NumberConstraintMaximum
+  , _schemaExclusiveMaximum :: Maybe NumberConstraintExclusiveMaximum
+  , _schemaMinimum          :: Maybe NumberConstraintMinimum
+  , _schemaExclusiveMinimum :: Maybe NumberConstraintExclusiveMinimum
+  , _schemaPattern          :: Maybe StringConstraintPattern
+  , _schemaMaxLength        :: Maybe StringConstraintMaxLength
+  , _schemaMinLength        :: Maybe StringConstraintMinLength
   } deriving (Generic, Eq, Show)
 
 nullSchema :: Schema

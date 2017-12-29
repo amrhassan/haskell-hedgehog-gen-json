@@ -4,6 +4,7 @@
 
 import           Control.Lens                 (over, set)
 import qualified Data.Aeson                   as Aeson
+import           Data.Fixed                   (mod')
 import qualified Data.HashMap.Strict          as H
 import qualified Data.Scientific              as Scientific
 import qualified Data.Text                    as Text
@@ -27,8 +28,6 @@ ranges =
   , _objectRange = ObjectRange {unObjectRange = Range.linear 0 5}
   }
 
---genTypes :: Gen AnyKeywordType
---genTypes = Gen.choice [SingleType <$> Gen.enumBounded, MultipleTypes <$> Gen.set (Range.linear 1 10) Gen.enumBounded]
 prop_generatedUnconstrainedJSON :: Property
 prop_generatedUnconstrainedJSON =
   property $ do
@@ -39,7 +38,7 @@ prop_constrainedValueFromEnum :: Property
 prop_constrainedValueFromEnum =
   property $ do
     values <- forAll $ Gen.nonEmpty (Range.linear 1 10) (Gen.text (Range.linear 1 100) Gen.unicode)
-    schema <- forAll $ over schemaEnum (const $ Just $ AnyKeywordEnum (Aeson.String <$> values)) <$> genSchema
+    schema <- forAll $ over schemaEnum (const $ Just $ AnyConstraintEnum (Aeson.String <$> values)) <$> genSchema
     v <- forAll $ genConstrainedJSON ranges schema
     assert $ isJust $ find (== Aeson.decodeStrict v) (Just <$> values)
 
@@ -47,57 +46,67 @@ prop_constrainedValueFromConst :: Property
 prop_constrainedValueFromConst =
   property $ do
     c <- forAll $ genJSONValue ranges
-    schema <- forAll $ over schemaConst (const $ Just $ AnyKeywordConst c) <$> genSchema
+    schema <- forAll $ over schemaConst (const $ Just $ AnyConstraintConst c) <$> genSchema
     v <- forAll $ genConstrainedJSON ranges schema
     Aeson.decodeStrict v === Just c
 
 prop_constrainedNumber :: Property
 prop_constrainedNumber =
   property $ do
-    vmin <- forAll $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 0 5000)
-    vminEx <- forAll $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 0 5000)
-    vmax <- forAll $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 6000 10000)
-    vmaxEx <- forAll $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 6000 10000)
+    vmin <- forAll $ Gen.maybe $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 0 5000)
+    vminEx <- forAll $ Gen.maybe $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 0 5000)
+    vmax <- forAll $ Gen.maybe $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 6000 10000)
+    vmaxEx <- forAll $ Gen.maybe $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 6000 10000)
     let schema =
-          (set schemaMinimum (Just $ NumberKeywordMinimum vmin) .
-           set schemaMaximum (Just $ NumberKeywordMaximum vmax) .
-           set schemaExclusiveMinimum (Just $ NumberKeywordExclusiveMinimum vminEx) .
-           set schemaExclusiveMaximum (Just $ NumberKeywordExclusiveMaximum vmaxEx))
+          (set schemaMinimum (NumberConstraintMinimum <$> vmin) .
+           set schemaMaximum (NumberConstraintMaximum <$> vmax) .
+           set schemaExclusiveMinimum (NumberConstraintExclusiveMinimum <$> vminEx) .
+           set schemaExclusiveMaximum (NumberConstraintExclusiveMaximum <$> vmaxEx))
             numberSchema
     (Aeson.Number v) <- forAll $ genConstrainedJSONValue ranges schema
-    assert (v >= vmin && v > vminEx && v <= vmax && v < vmaxEx)
+    assert $ maybe True (v >=) vmin
+    assert $ maybe True (v <=) vmax
+    assert $ maybe True (v <) vmaxEx
+    assert $ maybe True (v >) vminEx
 
 prop_constrainedInteger :: Property
 prop_constrainedInteger =
   property $ do
-    vmin <- forAll $ fromInteger <$> Gen.integral (Range.linear 0 5000)
-    vminEx <- forAll $ fromInteger <$> Gen.integral (Range.linear 0 5000)
-    vmax <- forAll $ fromInteger <$> Gen.integral (Range.linear 6000 10000)
-    vmaxEx <- forAll $ fromInteger <$> Gen.integral (Range.linear 6000 10000)
+    vmin <- forAll $ Gen.maybe $ fromInteger <$> Gen.integral (Range.linear 0 5000)
+    vminEx <- forAll $ Gen.maybe $ fromInteger <$> Gen.integral (Range.linear 0 5000)
+    vmax <- forAll $ Gen.maybe $ fromInteger <$> Gen.integral (Range.linear 6000 10000)
+    vmaxEx <- forAll $ Gen.maybe $ fromInteger <$> Gen.integral (Range.linear 6000 10000)
+    multipleOf <- forAll $ Gen.maybe $ fromInteger <$> Gen.integral (Range.linear 1 10)
     let schema =
-          (set schemaMinimum (Just $ NumberKeywordMinimum vmin) .
-           set schemaMaximum (Just $ NumberKeywordMaximum vmax) .
-           set schemaExclusiveMinimum (Just $ NumberKeywordExclusiveMinimum vminEx) .
-           set schemaExclusiveMaximum (Just $ NumberKeywordExclusiveMaximum vmaxEx))
+          (set schemaMinimum (NumberConstraintMinimum <$> vmin) .
+           set schemaMaximum (NumberConstraintMaximum <$> vmax) .
+           set schemaExclusiveMinimum (NumberConstraintExclusiveMinimum <$> vminEx) .
+           set schemaExclusiveMaximum (NumberConstraintExclusiveMaximum <$> vmaxEx) .
+           set schemaMultipleOf (NumberConstraintMultipleOf <$> multipleOf))
             integerSchema
     (Aeson.Number v) <- forAll $ genConstrainedJSONValue ranges schema
-    assert (v >= vmin && v > vminEx && v <= vmax && v < vmaxEx && Scientific.isInteger v)
+    assert $ maybe True (v >=) vmin
+    assert $ maybe True (v <=) vmax
+    assert $ maybe True (v <) vmaxEx
+    assert $ maybe True (v >) vminEx
+    assert $ maybe True (\x -> v `mod'` x == 0) multipleOf
+    assert $ Scientific.isInteger v
 
 prop_constrainedString :: Property
 prop_constrainedString =
   property $ do
     minLength <- forAll $ Gen.integral (Range.linear 0 500)
     maxLength <- forAll $ Gen.integral (Range.linear minLength 1000)
-    regexp <- forAll $ Gen.element [Just (StringKeywordPattern "[a-zA-Z0-9]{3,9}"), Nothing] -- Not very arbitrary, I know.
+    regexp <- forAll $ Gen.element [Just (StringConstraintPattern "[a-zA-Z0-9]{3,9}"), Nothing] -- Not very arbitrary, I know.
     let schema =
           (set schemaPattern regexp .
-           set schemaMinLength (Just $ StringKeywordMinLength minLength) .
-           set schemaMaxLength (Just $ StringKeywordMaxLength maxLength))
+           set schemaMinLength (Just $ StringConstraintMinLength minLength) .
+           set schemaMaxLength (Just $ StringConstraintMaxLength maxLength))
             stringSchema
     (Aeson.String v) <- forAll $ genConstrainedJSONValue ranges schema
     assert $
       case regexp of
-        Just (StringKeywordPattern p) -> Text.unpack v =~ Text.unpack p
+        Just (StringConstraintPattern p) -> Text.unpack v =~ Text.unpack p
         Nothing -> Text.length v >= minLength && Text.length v <= maxLength
 
 prop_decodesSchema :: Property
@@ -118,7 +127,7 @@ prop_decodesSchema = property $ decoded === Right expected
       , _schemaExclusiveMaximum = Nothing
       , _schemaExclusiveMinimum = Nothing
       , _schemaProperties =
-          (Just . ObjectKeywordProperties) (H.fromList [("user_id", integerSchema), ("user_domain", stringSchema)])
+          (Just . ObjectConstraintProperties) (H.fromList [("user_id", integerSchema), ("user_domain", stringSchema)])
       , _schemaPattern = Nothing
       , _schemaMaxLength = Nothing
       , _schemaMinLength = Nothing

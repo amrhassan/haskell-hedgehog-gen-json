@@ -8,6 +8,7 @@ module Hedgehog.Gen.JSON.Constrained
 
 import           Control.Lens
 import qualified Data.Aeson                   as Aeson
+import           Data.Fixed                   (mod')
 import qualified Data.Scientific              as Scientific
 import qualified Data.Text                    as Text
 import           Hedgehog
@@ -22,12 +23,12 @@ genValue :: Ranges -> Schema -> Gen Aeson.Value
 genValue ranges schema
   | isJust (schema ^. schemaEnum) =
     case schema ^. schemaEnum of
-      Just (AnyKeywordEnum vs) -> (Gen.element . toList) vs
-      Nothing                  -> empty
+      Just (AnyConstraintEnum vs) -> (Gen.element . toList) vs
+      Nothing                     -> empty
   | isJust (schema ^. schemaConst) =
     case schema ^. schemaConst of
-      Just (AnyKeywordConst c) -> pure c
-      Nothing                  -> empty
+      Just (AnyConstraintConst c) -> pure c
+      Nothing                     -> empty
   | otherwise =
     case schema ^. schemaType of
       MultipleTypes (t :| []) -> genValue ranges (over schemaType (const $ SingleType t) schema)
@@ -62,49 +63,54 @@ genNumberValue schema =
     defaultMax = 5000
     vmin =
       case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
-        (Just (NumberKeywordMinimum x), Just (NumberKeywordExclusiveMinimum y)) -> max x (y + 0.1)
-        (Just (NumberKeywordMinimum x), Nothing) -> x
-        (Nothing, Just (NumberKeywordExclusiveMinimum y)) -> (y + 0.1)
+        (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 0.1)
+        (Just (NumberConstraintMinimum x), Nothing) -> x
+        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> (y + 0.1)
         (Nothing, Nothing) -> defaultMin
     vmax =
       case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
-        (Just (NumberKeywordMaximum x), Just (NumberKeywordExclusiveMaximum y)) -> min x (y - 0.1)
-        (Just (NumberKeywordMaximum x), Nothing) -> x
-        (Nothing, Just (NumberKeywordExclusiveMaximum y)) -> (y - 0.1)
+        (Just (NumberConstraintMaximum x), Just (NumberConstraintExclusiveMaximum y)) -> min x (y - 0.1)
+        (Just (NumberConstraintMaximum x), Nothing) -> x
+        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> (y - 0.1)
         (Nothing, Nothing) -> defaultMax
 
 genIntegerValue :: Schema -> Gen Aeson.Value
 genIntegerValue schema =
-  (Aeson.Number . fromInteger . round) <$>
-  Gen.double (Range.linearFrac (Scientific.toRealFloat vmin) (Scientific.toRealFloat vmax))
+  Aeson.Number <$>
+  (Gen.filter multipleOfPredicate $
+   (fromInteger . round) <$> Gen.double (Range.linearFrac (Scientific.toRealFloat vmin) (Scientific.toRealFloat vmax)))
   where
     defaultMin = -5000
     defaultMax = 5000
     vmin =
       case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
-        (Just (NumberKeywordMinimum x), Just (NumberKeywordExclusiveMinimum y)) -> max x (y + 1)
-        (Just (NumberKeywordMinimum x), Nothing) -> x
-        (Nothing, Just (NumberKeywordExclusiveMinimum y)) -> (y + 0.1)
+        (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 1)
+        (Just (NumberConstraintMinimum x), Nothing) -> x
+        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> (y + 1)
         (Nothing, Nothing) -> defaultMin
     vmax =
       case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
-        (Just (NumberKeywordMaximum x), Just (NumberKeywordExclusiveMaximum y)) -> min x (y - 1)
-        (Just (NumberKeywordMaximum x), Nothing) -> x
-        (Nothing, Just (NumberKeywordExclusiveMaximum y)) -> (y - 0.1)
+        (Just (NumberConstraintMaximum x), Just (NumberConstraintExclusiveMaximum y)) -> min x (y - 1)
+        (Just (NumberConstraintMaximum x), Nothing) -> x
+        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> (y - 1)
         (Nothing, Nothing) -> defaultMax
+    multipleOfPredicate =
+      case schema ^. schemaMultipleOf of
+        Just (NumberConstraintMultipleOf x) -> \m -> m `mod'` x == 0
+        Nothing                             -> const True
 
 genString :: Schema -> Gen Aeson.Value
 genString schema =
   case schema ^. schemaPattern of
-    Just (StringKeywordPattern x) ->
+    Just (StringConstraintPattern x) ->
       Gen.element $ (Aeson.String . Text.pack) <$> take 10 (Genex.genexPure [Text.unpack x])
     Nothing -> Aeson.String <$> Gen.text (Range.linear minLength maxLength) Gen.unicode
   where
     minLength =
       case schema ^. schemaMinLength of
-        Just (StringKeywordMinLength x) -> x
-        Nothing                         -> 0
+        Just (StringConstraintMinLength x) -> x
+        Nothing                            -> 0
     maxLength =
       case schema ^. schemaMaxLength of
-        Just (StringKeywordMaxLength x) -> x
-        Nothing                         -> 1000
+        Just (StringConstraintMaxLength x) -> x
+        Nothing                            -> 1000
