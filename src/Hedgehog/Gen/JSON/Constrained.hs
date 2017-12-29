@@ -7,10 +7,12 @@ module Hedgehog.Gen.JSON.Constrained
 
 import           Control.Lens
 import qualified Data.Aeson                   as Aeson
+import qualified Data.Scientific              as Scientific
 import           Hedgehog
 import qualified Hedgehog.Gen                 as Gen
 import           Hedgehog.Gen.JSON.JSONSchema
 import           Hedgehog.Gen.JSON.Ranges
+import qualified Hedgehog.Range               as Range
 import           Protolude
 
 genValue :: Ranges -> Schema -> Gen Aeson.Value
@@ -31,13 +33,14 @@ genValue ranges schema
           [ genValue ranges (over schemaType (const $ SingleType t) schema)
           , genValue ranges (over schemaType (const $ SingleType t') schema)
           ]
-      MultipleTypes (t :| (t' : ts)) ->
+      MultipleTypes (t :| (t':ts)) ->
         Gen.choice
           [ genValue ranges (over schemaType (const $ SingleType t) schema)
           , genValue ranges (over schemaType (const $ MultipleTypes (t' :| ts)) schema)
           ]
       SingleType NullType -> genNullValue
       SingleType BooleanType -> genBooleanValue
+      SingleType NumberType -> genNumberValue schema
 
 genNullValue :: Gen Aeson.Value
 genNullValue = Gen.constant Aeson.Null
@@ -45,4 +48,22 @@ genNullValue = Gen.constant Aeson.Null
 genBooleanValue :: Gen Aeson.Value
 genBooleanValue = Aeson.Bool <$> Gen.bool
 
---genNumberValue :: Gen Aeson.Value
+genNumberValue :: Schema -> Gen Aeson.Value
+genNumberValue schema =
+  (Aeson.Number . Scientific.fromFloatDigits) <$>
+  Gen.double (Range.linearFrac (Scientific.toRealFloat vmin) (Scientific.toRealFloat vmax))
+  where
+    defaultMin = -5000
+    defaultMax = 5000
+    vmin =
+      case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
+        (Just (NumberKeywordMinimum x), Just (NumberKeywordExclusiveMinimum y)) -> max x (y + 0.1)
+        (Just (NumberKeywordMinimum x), Nothing) -> x
+        (Nothing, Just (NumberKeywordExclusiveMinimum y)) -> (y + 0.1)
+        (Nothing, Nothing) -> defaultMin
+    vmax =
+      case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
+        (Just (NumberKeywordMaximum x), Just (NumberKeywordExclusiveMaximum y)) -> min x (y - 0.1)
+        (Just (NumberKeywordMaximum x), Nothing) -> x
+        (Nothing, Just (NumberKeywordExclusiveMaximum y)) -> (y - 0.1)
+        (Nothing, Nothing) -> defaultMax
