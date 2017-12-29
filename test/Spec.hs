@@ -6,6 +6,7 @@ import           Control.Lens                 (over, set)
 import qualified Data.Aeson                   as Aeson
 import qualified Data.HashMap.Strict          as H
 import qualified Data.Scientific              as Scientific
+import qualified Data.Text                    as Text
 import           Hedgehog
 import qualified Hedgehog.Gen                 as Gen
 import           Hedgehog.Gen.JSON
@@ -15,6 +16,7 @@ import qualified Prelude                      as P
 import           Protolude
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
+import           Text.Regex.Posix
 
 ranges :: Ranges
 ranges =
@@ -81,6 +83,23 @@ prop_constrainedInteger =
     (Aeson.Number v) <- forAll $ genConstrainedJSONValue ranges schema
     assert (v >= vmin && v > vminEx && v <= vmax && v < vmaxEx && Scientific.isInteger v)
 
+prop_constrainedString :: Property
+prop_constrainedString =
+  property $ do
+    minLength <- forAll $ Gen.integral (Range.linear 0 500)
+    maxLength <- forAll $ Gen.integral (Range.linear minLength 1000)
+    regexp <- forAll $ Gen.element [Just (StringKeywordPattern "[a-zA-Z0-9]{3,9}"), Nothing] -- Not very arbitrary, I know.
+    let schema =
+          (set schemaPattern regexp .
+           set schemaMinLength (Just $ StringKeywordMinLength minLength) .
+           set schemaMaxLength (Just $ StringKeywordMaxLength maxLength))
+            stringSchema
+    (Aeson.String v) <- forAll $ genConstrainedJSONValue ranges schema
+    assert $
+      case regexp of
+        Just (StringKeywordPattern p) -> Text.unpack v =~ Text.unpack p
+        Nothing -> Text.length v >= minLength && Text.length v <= maxLength
+
 prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
   where
@@ -100,6 +119,9 @@ prop_decodesSchema = property $ decoded === Right expected
       , _schemaExclusiveMinimum = Nothing
       , _schemaProperties =
           (Just . ObjectKeywordProperties) (H.fromList [("user_id", integerSchema), ("user_domain", stringSchema)])
+      , _schemaPattern = Nothing
+      , _schemaMaxLength = Nothing
+      , _schemaMinLength = Nothing
       }
 
 tests :: TestTree
@@ -112,6 +134,7 @@ tests =
     , testProperty "Generates constrained values from JSON Schema const when present" prop_constrainedValueFromConst
     , testProperty "Generates a constrained number" prop_constrainedNumber
     , testProperty "Generates a constrained integer" prop_constrainedInteger
+    , testProperty "Generates a constrained string" prop_constrainedString
     ]
 
 main :: IO ()

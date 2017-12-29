@@ -24,6 +24,7 @@ dependencies:
   - text
   - containers
   - unordered-containers
+  - regex-genex
 
 library:
   source-dirs: src
@@ -39,3 +40,4 @@ tests:
     dependencies:
       - tasty
       - tasty-hedgehog
+      - regex-posix

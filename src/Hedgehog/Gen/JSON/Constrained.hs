@@ -1,4 +1,5 @@
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Hedgehog.Gen.JSON.Constrained
   ( genValue
@@ -8,12 +9,14 @@ module Hedgehog.Gen.JSON.Constrained
 import           Control.Lens
 import qualified Data.Aeson                   as Aeson
 import qualified Data.Scientific              as Scientific
+import qualified Data.Text                    as Text
 import           Hedgehog
 import qualified Hedgehog.Gen                 as Gen
 import           Hedgehog.Gen.JSON.JSONSchema
 import           Hedgehog.Gen.JSON.Ranges
 import qualified Hedgehog.Range               as Range
 import           Protolude
+import qualified Regex.Genex                  as Genex
 
 genValue :: Ranges -> Schema -> Gen Aeson.Value
 genValue ranges schema
@@ -42,6 +45,7 @@ genValue ranges schema
       SingleType BooleanType -> genBooleanValue
       SingleType NumberType -> genNumberValue schema
       SingleType IntegerType -> genIntegerValue schema
+      SingleType StringType -> genString schema
 
 genNullValue :: Gen Aeson.Value
 genNullValue = Gen.constant Aeson.Null
@@ -88,3 +92,19 @@ genIntegerValue schema =
         (Just (NumberKeywordMaximum x), Nothing) -> x
         (Nothing, Just (NumberKeywordExclusiveMaximum y)) -> (y - 0.1)
         (Nothing, Nothing) -> defaultMax
+
+genString :: Schema -> Gen Aeson.Value
+genString schema =
+  case schema ^. schemaPattern of
+    Just (StringKeywordPattern x) ->
+      Gen.element $ (Aeson.String . Text.pack) <$> take 10 (Genex.genexPure [Text.unpack x])
+    Nothing -> Aeson.String <$> Gen.text (Range.linear minLength maxLength) Gen.unicode
+  where
+    minLength =
+      case schema ^. schemaMinLength of
+        Just (StringKeywordMinLength x) -> x
+        Nothing                         -> 0
+    maxLength =
+      case schema ^. schemaMaxLength of
+        Just (StringKeywordMaxLength x) -> x
+        Nothing                         -> 1000
