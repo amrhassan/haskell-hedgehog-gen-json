@@ -65,6 +65,22 @@ prop_constrainedNumber =
     (Aeson.Number v) <- forAll $ genConstrainedJSONValue ranges schema
     assert (v >= vmin && v > vminEx && v <= vmax && v < vmaxEx)
 
+prop_constrainedInteger :: Property
+prop_constrainedInteger =
+  property $ do
+    vmin <- forAll $ fromInteger <$> Gen.integral (Range.linear 0 5000)
+    vminEx <- forAll $ fromInteger <$> Gen.integral (Range.linear 0 5000)
+    vmax <- forAll $ fromInteger <$> Gen.integral (Range.linear 6000 10000)
+    vmaxEx <- forAll $ fromInteger <$> Gen.integral (Range.linear 6000 10000)
+    let schema =
+          (set schemaMinimum (Just $ NumberKeywordMinimum vmin) .
+           set schemaMaximum (Just $ NumberKeywordMaximum vmax) .
+           set schemaExclusiveMinimum (Just $ NumberKeywordExclusiveMinimum vminEx) .
+           set schemaExclusiveMaximum (Just $ NumberKeywordExclusiveMaximum vmaxEx))
+            integerSchema
+    (Aeson.Number v) <- forAll $ genConstrainedJSONValue ranges schema
+    assert (v >= vmin && v > vminEx && v <= vmax && v < vmaxEx && Scientific.isInteger v)
+
 prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
   where
@@ -95,6 +111,7 @@ tests =
     , testProperty "Generates constrained values from JSON Schema enum when present" prop_constrainedValueFromEnum
     , testProperty "Generates constrained values from JSON Schema const when present" prop_constrainedValueFromConst
     , testProperty "Generates a constrained number" prop_constrainedNumber
+    , testProperty "Generates a constrained integer" prop_constrainedInteger
     ]
 
 main :: IO ()

@@ -41,6 +41,7 @@ genValue ranges schema
       SingleType NullType -> genNullValue
       SingleType BooleanType -> genBooleanValue
       SingleType NumberType -> genNumberValue schema
+      SingleType IntegerType -> genIntegerValue schema
 
 genNullValue :: Gen Aeson.Value
 genNullValue = Gen.constant Aeson.Null
@@ -64,6 +65,26 @@ genNumberValue schema =
     vmax =
       case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
         (Just (NumberKeywordMaximum x), Just (NumberKeywordExclusiveMaximum y)) -> min x (y - 0.1)
+        (Just (NumberKeywordMaximum x), Nothing) -> x
+        (Nothing, Just (NumberKeywordExclusiveMaximum y)) -> (y - 0.1)
+        (Nothing, Nothing) -> defaultMax
+
+genIntegerValue :: Schema -> Gen Aeson.Value
+genIntegerValue schema =
+  (Aeson.Number . fromInteger . round) <$>
+  Gen.double (Range.linearFrac (Scientific.toRealFloat vmin) (Scientific.toRealFloat vmax))
+  where
+    defaultMin = -5000
+    defaultMax = 5000
+    vmin =
+      case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
+        (Just (NumberKeywordMinimum x), Just (NumberKeywordExclusiveMinimum y)) -> max x (y + 1)
+        (Just (NumberKeywordMinimum x), Nothing) -> x
+        (Nothing, Just (NumberKeywordExclusiveMinimum y)) -> (y + 0.1)
+        (Nothing, Nothing) -> defaultMin
+    vmax =
+      case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
+        (Just (NumberKeywordMaximum x), Just (NumberKeywordExclusiveMaximum y)) -> min x (y - 1)
         (Just (NumberKeywordMaximum x), Nothing) -> x
         (Nothing, Just (NumberKeywordExclusiveMaximum y)) -> (y - 0.1)
         (Nothing, Nothing) -> defaultMax
