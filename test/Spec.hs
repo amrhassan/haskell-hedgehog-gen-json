@@ -2,9 +2,8 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import           Control.Lens                 ((^.))
+import           Control.Lens                 (over)
 import qualified Data.Aeson                   as Aeson
-import           Data.HashMap.Strict          (HashMap)
 import qualified Data.HashMap.Strict          as H
 import qualified Data.Set                     as S
 import           Hedgehog
@@ -26,8 +25,12 @@ ranges =
   , _objectRange = ObjectRange {unObjectRange = Range.linear 0 5}
   }
 
-genTypes :: Gen AnyKeywordType
-genTypes = Gen.choice [SingleType <$> Gen.enumBounded, MultipleTypes <$> Gen.set (Range.linear 1 10) Gen.enumBounded]
+genSchema :: Gen Schema
+genSchema =
+  Gen.element [nullSchema, booleanSchema, objectSchema, arraySchema, numberSchema, integerSchema, stringSchema]
+
+--genTypes :: Gen AnyKeywordType
+--genTypes = Gen.choice [SingleType <$> Gen.enumBounded, MultipleTypes <$> Gen.set (Range.linear 1 10) Gen.enumBounded]
 
 prop_generatedUnconstrainedJSON :: Property
 prop_generatedUnconstrainedJSON =
@@ -38,32 +41,16 @@ prop_generatedUnconstrainedJSON =
 prop_constrainedValueFromEnum :: Property
 prop_constrainedValueFromEnum =
   property $ do
-    st <- forAll genTypes
     values <- forAll $ Gen.nonEmpty (Range.linear 1 10) (Gen.text (Range.linear 1 100) Gen.unicode)
-    let schema =
-          Schema
-          { _schemaType = st
-          , _schemaEnum = Just $ AnyKeywordEnum (Aeson.String <$> values)
-          , _schemaConst = Nothing
-          , _schemaRequired = Nothing
-          , _schemaProperties = Nothing
-          }
+    schema <- forAll $ over schemaEnum (const $ Just $ AnyKeywordEnum (Aeson.String <$> values)) <$> genSchema
     v <- forAll $ genConstrainedJSON ranges schema
     assert $ isJust $ find (== Aeson.decodeStrict v) (Just <$> values)
 
 prop_constrainedValueFromConst :: Property
 prop_constrainedValueFromConst =
   property $ do
-    st <- forAll genTypes
     c <- forAll $ genJSONValue ranges
-    let schema =
-          Schema
-          { _schemaType = st
-          , _schemaEnum = Nothing
-          , _schemaConst = Just $ AnyKeywordConst c
-          , _schemaRequired = Nothing
-          , _schemaProperties = Nothing
-          }
+    schema <- forAll $ over schemaConst (const $ Just $ AnyKeywordConst c) <$> genSchema
     v <- forAll $ genConstrainedJSON ranges schema
     Aeson.decodeStrict v === Just c
 

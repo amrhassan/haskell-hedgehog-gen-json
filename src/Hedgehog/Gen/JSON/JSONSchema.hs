@@ -69,17 +69,82 @@ newtype ObjectKeywordRequired =
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 data Schema = Schema
-  { _schemaType :: AnyKeywordType
+  { _schemaType       :: AnyKeywordType
   , _schemaEnum       :: Maybe AnyKeywordEnum
   , _schemaConst      :: Maybe AnyKeywordConst
   , _schemaProperties :: Maybe ObjectKeywordProperties
   , _schemaRequired   :: Maybe ObjectKeywordRequired
   } deriving (Generic, Eq, Show)
 
+nullSchema :: Schema
+nullSchema =
+    Schema
+    { _schemaType = SingleType NullType
+    , _schemaEnum = Nothing
+    , _schemaConst = Nothing
+    , _schemaRequired = Nothing
+    , _schemaProperties = Nothing
+    }
+
+booleanSchema :: Schema
+booleanSchema =
+    Schema
+    { _schemaType = SingleType BooleanType
+    , _schemaEnum = Nothing
+    , _schemaConst = Nothing
+    , _schemaRequired = Nothing
+    , _schemaProperties = Nothing
+    }
+
 objectSchema :: Schema
 objectSchema =
   Schema
-  {_schemaType = SingleType ObjectType, _schemaEnum = Nothing, _schemaConst = Nothing, _schemaRequired = Nothing, _schemaProperties = Nothing}
+  { _schemaType = SingleType ObjectType
+  , _schemaEnum = Nothing
+  , _schemaConst = Nothing
+  , _schemaRequired = Nothing
+  , _schemaProperties = Nothing
+  }
+
+arraySchema :: Schema
+arraySchema =
+  Schema
+  { _schemaType = SingleType ArrayType
+  , _schemaEnum = Nothing
+  , _schemaConst = Nothing
+  , _schemaRequired = Nothing
+  , _schemaProperties = Nothing
+  }
+
+numberSchema :: Schema
+numberSchema =
+    Schema
+    { _schemaType = SingleType NumberType
+    , _schemaEnum = Nothing
+    , _schemaConst = Nothing
+    , _schemaRequired = Nothing
+    , _schemaProperties = Nothing
+    }
+
+integerSchema :: Schema
+integerSchema =
+    Schema
+    { _schemaType = SingleType IntegerType
+    , _schemaEnum = Nothing
+    , _schemaConst = Nothing
+    , _schemaRequired = Nothing
+    , _schemaProperties = Nothing
+    }
+
+stringSchema :: Schema
+stringSchema =
+    Schema
+    { _schemaType = SingleType StringType
+    , _schemaEnum = Nothing
+    , _schemaConst = Nothing
+    , _schemaRequired = Nothing
+    , _schemaProperties = Nothing
+    }
 
 makeLenses ''Schema
 
