@@ -95,19 +95,19 @@ prop_constrainedInteger =
 prop_constrainedString :: Property
 prop_constrainedString =
   property $ do
-    minLength <- forAll $ Gen.integral (Range.linear 0 500)
-    maxLength <- forAll $ Gen.integral (Range.linear minLength 1000)
-    regexp <- forAll $ Gen.element [Just (StringConstraintPattern "[a-zA-Z0-9]{3,9}"), Nothing] -- Not very arbitrary, I know.
+    minLength <- forAll $ Gen.maybe $ Gen.integral (Range.linear 0 500)
+    maxLength <- forAll $ Gen.maybe $ Gen.integral (Range.linear (fromMaybe 0 minLength) 1000)
+    regexp <- forAll $ Gen.maybe $ Gen.constant "[a-zA-Z0-9]{3,9}" -- Not very arbitrary, I know.
     let schema =
-          (set schemaPattern regexp .
-           set schemaMinLength (Just $ StringConstraintMinLength minLength) .
-           set schemaMaxLength (Just $ StringConstraintMaxLength maxLength))
+          (set schemaPattern (StringConstraintPattern <$> regexp) .
+           set schemaMinLength (StringConstraintMinLength <$> minLength) .
+           set schemaMaxLength (StringConstraintMaxLength <$> maxLength))
             stringSchema
     (Aeson.String v) <- forAll $ genConstrainedJSONValue ranges schema
     assert $
       case regexp of
-        Just (StringConstraintPattern p) -> Text.unpack v =~ Text.unpack p
-        Nothing -> Text.length v >= minLength && Text.length v <= maxLength
+        Just p  -> Text.unpack v =~ Text.unpack p
+        Nothing -> Text.length v >= fromMaybe 0 minLength && Text.length v <= fromMaybe 1000 maxLength
 
 prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
