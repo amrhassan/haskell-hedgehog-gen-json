@@ -5,7 +5,6 @@
 import           Control.Lens                 (over)
 import qualified Data.Aeson                   as Aeson
 import qualified Data.HashMap.Strict          as H
-import qualified Data.Set                     as S
 import           Hedgehog
 import qualified Hedgehog.Gen                 as Gen
 import           Hedgehog.Gen.JSON
@@ -65,7 +64,7 @@ prop_decodesSchema = property $ decoded === Right expected
       { _schemaType = SingleType ObjectType
       , _schemaEnum = Nothing
       , _schemaConst = Nothing
-      , _schemaRequired = Just (ObjectKeywordRequired $ S.fromList ["user_id"])
+      , _schemaRequired = Just (ObjectKeywordRequired ["user_id"])
       , _schemaProperties =
           (Just . ObjectKeywordProperties)
             (H.fromList
