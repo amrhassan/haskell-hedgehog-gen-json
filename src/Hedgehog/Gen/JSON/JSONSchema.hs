@@ -15,7 +15,6 @@ import qualified Data.ByteString     as BS
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty  as NonEmpty
 import           Data.Scientific     (Scientific)
-import qualified Data.Scientific     as Scientific
 import qualified Data.Text           as Text
 import           Protolude
 

@@ -22,10 +22,10 @@ import           Text.Regex.Posix
 ranges :: Ranges
 ranges =
   Ranges
-  { _arrayRange = ArrayRange {unArrayRange = Range.linear 0 5}
-  , _stringRange = StringRange {unStringRange = Range.linear 0 100}
-  , _numberRange = NumberRange {unNumberRange = Range.linearFrac 0 1000}
-  , _objectRange = ObjectRange {unObjectRange = Range.linear 0 5}
+  { _arrayRange = ArrayRange $ Range.linear 0 5
+  , _stringRange = StringRange $ Range.linear 0 100
+  , _numberRange = NumberRange $ Range.linearFrac 0 1000
+  , _objectRange = ObjectRange $ Range.linear 0 5
   }
 
 prop_generatedUnconstrainedJSON :: Property
@@ -106,7 +106,7 @@ prop_constrainedString =
     (Aeson.String v) <- forAll $ genConstrainedJSONValue ranges schema
     assert $
       case regexp of
-        Just p  -> Text.unpack v =~ Text.unpack p
+        Just p -> Text.unpack v =~ Text.unpack p
         Nothing -> Text.length v >= fromMaybe 0 minLength && Text.length v <= fromMaybe 1000 maxLength
 
 prop_decodesSchema :: Property

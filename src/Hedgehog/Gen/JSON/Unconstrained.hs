@@ -12,28 +12,28 @@ genNull :: Gen A.Value
 genNull = pure A.Null
 
 genString :: StringRange -> Gen A.Value
-genString sr = A.String <$> Gen.text (unStringRange sr) Gen.unicode
+genString (StringRange sr) = A.String <$> Gen.text sr Gen.unicode
 
 genBool :: Gen A.Value
 genBool = A.Bool <$> Gen.bool
 
 genNumber :: NumberRange -> Gen A.Value
-genNumber nr = (A.Number . Scientific.fromFloatDigits) <$> Gen.double (unNumberRange nr)
+genNumber (NumberRange nr) = (A.Number . Scientific.fromFloatDigits) <$> Gen.double nr
 
 genArray :: Ranges -> Gen A.Value
 genArray ranges = do
   let gen = Gen.recursive Gen.choice [genBool, genNumber nr, genString sr] [genArray ranges, genObj ranges]
-  (A.Array . Vector.fromList) <$> Gen.list (unArrayRange ar) gen
+  (A.Array . Vector.fromList) <$> Gen.list ar gen
   where
     nr = ranges ^. numberRange
     sr = ranges ^. stringRange
-    ar = ranges ^. arrayRange
+    ArrayRange ar = ranges ^. arrayRange
 
 genObj :: Ranges -> Gen A.Value
 genObj ranges = A.object <$> Gen.list ar ((,) <$> Gen.text sr Gen.unicode <*> genValue ranges)
   where
-    sr = unStringRange (ranges ^. stringRange)
-    ar = unArrayRange (ranges ^. arrayRange)
+    (StringRange sr) = ranges ^. stringRange
+    (ArrayRange ar) = ranges ^. arrayRange
 
 genValue :: Ranges -> Gen A.Value
 genValue ranges =

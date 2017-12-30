@@ -5,21 +5,13 @@ module Hedgehog.Gen.JSON.Ranges where
 import           Control.Lens
 import           Hedgehog
 
-newtype NumberRange = NumberRange
-  { unNumberRange :: Range Double
-  }
+newtype NumberRange = NumberRange (Range Double)
 
-newtype StringRange = StringRange
-  { unStringRange :: Range Int
-  }
+newtype StringRange = StringRange (Range Int)
 
-newtype ArrayRange = ArrayRange
-  { unArrayRange :: Range Int
-  }
+newtype ArrayRange = ArrayRange (Range Int)
 
-newtype ObjectRange = ObjectRange
-  { unObjectRange :: Range Int
-  }
+newtype ObjectRange = ObjectRange (Range Int)
 
 data Ranges = Ranges
   { _numberRange :: NumberRange

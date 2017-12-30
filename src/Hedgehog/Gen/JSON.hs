@@ -18,10 +18,7 @@ module Hedgehog.Gen.JSON
 import qualified Data.Aeson                      as Aeson
 import qualified Data.ByteString                 as BS
 import qualified Data.ByteString.Lazy            as LBS
-import qualified Data.Scientific                 as Scientific
-import qualified Data.Vector                     as Vector
 import           Hedgehog
-import qualified Hedgehog.Gen                    as Gen
 import qualified Hedgehog.Gen.JSON.Constrained   as Constrained
 import           Hedgehog.Gen.JSON.JSONSchema    (Schema)
 import           Hedgehog.Gen.JSON.Ranges

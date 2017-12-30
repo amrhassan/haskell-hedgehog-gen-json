@@ -44,7 +44,7 @@ genValue ranges schema
           ]
       SingleType NullType -> genNullValue
       SingleType BooleanType -> genBooleanValue
-      SingleType NumberType -> genNumberValue schema
+      SingleType NumberType -> genNumberValue (ranges ^. numberRange) schema
       SingleType IntegerType -> genIntegerValue schema
       SingleType StringType -> genString schema
 
@@ -54,13 +54,13 @@ genNullValue = Gen.constant Aeson.Null
 genBooleanValue :: Gen Aeson.Value
 genBooleanValue = Aeson.Bool <$> Gen.bool
 
-genNumberValue :: Schema -> Gen Aeson.Value
-genNumberValue schema =
+genNumberValue :: NumberRange -> Schema -> Gen Aeson.Value
+genNumberValue (NumberRange r) schema =
   (Aeson.Number . Scientific.fromFloatDigits) <$>
   Gen.double (Range.linearFrac (Scientific.toRealFloat vmin) (Scientific.toRealFloat vmax))
   where
-    defaultMin = -5000
-    defaultMax = 5000
+    defaultMin = Scientific.fromFloatDigits $ Range.lowerBound (-5000) r
+    defaultMax = Scientific.fromFloatDigits $ Range.upperBound 5000 r
     vmin =
       case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
         (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 0.1)
