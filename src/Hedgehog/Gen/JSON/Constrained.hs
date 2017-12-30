@@ -7,18 +7,21 @@ module Hedgehog.Gen.JSON.Constrained
   ) where
 
 import           Control.Lens
-import qualified Data.Aeson                   as Aeson
-import           Data.Fixed                   (mod')
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.Scientific              as Scientific
-import qualified Data.Text                    as Text
+import qualified Data.Aeson                      as Aeson
+import           Data.Fixed                      (mod')
+import qualified Data.HashMap.Strict             as HM
+import qualified Data.HashSet                    as HashSet
+import qualified Data.Scientific                 as Scientific
+import qualified Data.Text                       as Text
+import qualified Data.Vector                     as Vector
 import           Hedgehog
-import qualified Hedgehog.Gen                 as Gen
+import qualified Hedgehog.Gen                    as Gen
 import           Hedgehog.Gen.JSON.JSONSchema
 import           Hedgehog.Gen.JSON.Ranges
-import qualified Hedgehog.Range               as Range
+import qualified Hedgehog.Gen.JSON.Unconstrained as Unconstrained
+import qualified Hedgehog.Range                  as Range
 import           Protolude
-import qualified Regex.Genex                  as Genex
+import qualified Regex.Genex                     as Genex
 
 genValue :: Ranges -> Schema -> Gen Aeson.Value
 genValue ranges schema
@@ -122,16 +125,21 @@ genObject :: Ranges -> Schema -> Gen Aeson.Value
 genObject ranges schema = (Aeson.Object . HM.fromList . join) <$> generatedFields
   where
     generatedFields = traverse (\(n, gen) -> (\m -> (\v -> (n, v)) <$> (maybeToList m)) <$> gen) generatedFieldsMaybes
-    generatedFieldsMaybes =
-      (\(n, s) ->
-         ( n
-         , (if n `elem` required
-              then fmap Just
-              else Gen.maybe)
-             (genValue ranges s))) <$>
-      HM.toList properties
+    generatedFieldsMaybes = (\(n, s) -> (n , (if n `elem` required then fmap Just else Gen.maybe) (Gen.small $ genValue ranges s))) <$> HM.toList properties
     ObjectConstraintRequired required = fromMaybe (ObjectConstraintRequired []) $ schema ^. schemaRequired
     ObjectConstraintProperties properties = fromMaybe (ObjectConstraintProperties HM.empty) $ schema ^. schemaProperties
 
 genArray :: Ranges -> Schema -> Gen Aeson.Value
-genArray = undefined
+genArray ranges schema =
+  case itemSchemaMaybe of
+    Just itemSchema ->
+      Aeson.Array . Vector.fromList <$> Gen.filter (\i -> uniqueItems && isUnique i) (itemSubGen itemSchema)
+    Nothing -> Unconstrained.genArray ranges
+  where
+    itemSubGen is =
+      Gen.list (Range.linear (fromMaybe 0 minItems) (fromMaybe 10 maxItems)) $ Gen.small $ genValue ranges is
+    itemSchemaMaybe = (\(ArrayConstraintItems items) -> items) <$> (schema ^. schemaItems)
+    ArrayConstraintUniqueItems uniqueItems = fromMaybe (ArrayConstraintUniqueItems False) (schema ^. schemaUniqueItems)
+    maxItems = (\(ArrayConstraintMaxItems n) -> n) <$> (schema ^. schemaMaxItems)
+    minItems = (\(ArrayConstraintMinItems n) -> n) <$> (schema ^. schemaMinItems)
+    isUnique xs = (HashSet.toList . HashSet.fromList) xs == xs

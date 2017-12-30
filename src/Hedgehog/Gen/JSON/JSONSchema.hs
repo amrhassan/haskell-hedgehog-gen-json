@@ -97,8 +97,26 @@ newtype ObjectConstraintProperties =
 
 instance Aeson.FromJSON ObjectConstraintProperties
 
+instance Aeson.FromJSON ArrayConstraintItems
+
 newtype ObjectConstraintRequired =
   ObjectConstraintRequired [Text]
+  deriving (Generic, Eq, Show, Aeson.FromJSON)
+
+newtype ArrayConstraintItems =
+  ArrayConstraintItems Schema
+  deriving (Generic, Eq, Show)
+
+newtype ArrayConstraintMaxItems =
+  ArrayConstraintMaxItems Int
+  deriving (Generic, Eq, Show, Aeson.FromJSON)
+
+newtype ArrayConstraintMinItems =
+  ArrayConstraintMinItems Int
+  deriving (Generic, Eq, Show, Aeson.FromJSON)
+
+newtype ArrayConstraintUniqueItems =
+  ArrayConstraintUniqueItems Bool
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 data Schema = Schema
@@ -115,6 +133,10 @@ data Schema = Schema
   , _schemaPattern          :: Maybe StringConstraintPattern
   , _schemaMaxLength        :: Maybe StringConstraintMaxLength
   , _schemaMinLength        :: Maybe StringConstraintMinLength
+  , _schemaItems            :: Maybe ArrayConstraintItems
+  , _schemaMaxItems         :: Maybe ArrayConstraintMaxItems
+  , _schemaMinItems         :: Maybe ArrayConstraintMinItems
+  , _schemaUniqueItems      :: Maybe ArrayConstraintUniqueItems
   } deriving (Generic, Eq, Show)
 
 nullSchema :: Schema
@@ -133,6 +155,10 @@ nullSchema =
   , _schemaPattern = Nothing
   , _schemaMinLength = Nothing
   , _schemaMaxLength = Nothing
+  , _schemaItems = Nothing
+  , _schemaMinItems = Nothing
+  , _schemaMaxItems = Nothing
+  , _schemaUniqueItems = Nothing
   }
 
 booleanSchema :: Schema
@@ -151,6 +177,10 @@ booleanSchema =
   , _schemaPattern = Nothing
   , _schemaMinLength = Nothing
   , _schemaMaxLength = Nothing
+  , _schemaItems = Nothing
+  , _schemaMinItems = Nothing
+  , _schemaMaxItems = Nothing
+  , _schemaUniqueItems = Nothing
   }
 
 objectSchema :: Schema
@@ -169,6 +199,10 @@ objectSchema =
   , _schemaPattern = Nothing
   , _schemaMinLength = Nothing
   , _schemaMaxLength = Nothing
+  , _schemaItems = Nothing
+  , _schemaMinItems = Nothing
+  , _schemaMaxItems = Nothing
+  , _schemaUniqueItems = Nothing
   }
 
 arraySchema :: Schema
@@ -187,6 +221,10 @@ arraySchema =
   , _schemaPattern = Nothing
   , _schemaMinLength = Nothing
   , _schemaMaxLength = Nothing
+  , _schemaItems = Nothing
+  , _schemaMinItems = Nothing
+  , _schemaMaxItems = Nothing
+  , _schemaUniqueItems = Nothing
   }
 
 numberSchema :: Schema
@@ -205,6 +243,10 @@ numberSchema =
   , _schemaPattern = Nothing
   , _schemaMinLength = Nothing
   , _schemaMaxLength = Nothing
+  , _schemaItems = Nothing
+  , _schemaMinItems = Nothing
+  , _schemaMaxItems = Nothing
+  , _schemaUniqueItems = Nothing
   }
 
 integerSchema :: Schema
@@ -223,6 +265,10 @@ integerSchema =
   , _schemaPattern = Nothing
   , _schemaMinLength = Nothing
   , _schemaMaxLength = Nothing
+  , _schemaItems = Nothing
+  , _schemaMinItems = Nothing
+  , _schemaMaxItems = Nothing
+  , _schemaUniqueItems = Nothing
   }
 
 stringSchema :: Schema
@@ -241,6 +287,10 @@ stringSchema =
   , _schemaPattern = Nothing
   , _schemaMinLength = Nothing
   , _schemaMaxLength = Nothing
+  , _schemaItems = Nothing
+  , _schemaMinItems = Nothing
+  , _schemaMaxItems = Nothing
+  , _schemaUniqueItems = Nothing
   }
 
 makeLenses ''Schema
@@ -256,7 +306,11 @@ instance Aeson.FromJSON Schema where
       obj .:? "exclusiveMinimum" <*>
       obj .:? "pattern" <*>
       obj .:? "maxLength" <*>
-      obj .:? "minLength"
+      obj .:? "minLength" <*>
+      obj .:? "items" <*>
+      obj .:? "maxItems" <*>
+      obj .:? "minItems" <*>
+      obj .:? "uniqueItems"
 
 read :: FilePath -> IO (Either Text Schema)
 read fp = do

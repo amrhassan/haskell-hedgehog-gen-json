@@ -6,6 +6,7 @@ import           Control.Lens                 (over, set)
 import qualified Data.Aeson                   as Aeson
 import           Data.Fixed                   (mod')
 import qualified Data.HashMap.Strict          as H
+import qualified Data.HashSet                 as HS
 import qualified Data.Scientific              as Scientific
 import qualified Data.Text                    as Text
 import           Hedgehog
@@ -125,6 +126,31 @@ prop_constrainedObject =
     (Aeson.Object v) <- forAll $ genConstrainedJSONValue ranges schema
     assert $ all (`elem` (H.keys v)) (H.keys requiredFields)
 
+prop_constrainedArray :: Property
+prop_constrainedArray =
+  property $ do
+    uniqueItems <- forAll $ Gen.maybe Gen.bool
+    minItems <- forAll $ Gen.maybe $ Gen.integral (Range.constant 0 0)
+    maxItems <- forAll $ Gen.maybe $ Gen.integral (Range.constant 1 1)
+    itemSchema <- forAll genSchema
+    let schema =
+          (set schemaMinItems (ArrayConstraintMinItems <$> minItems) .
+           set schemaMaxItems (ArrayConstraintMaxItems <$> maxItems) .
+           set schemaUniqueItems (ArrayConstraintUniqueItems <$> uniqueItems) .
+           set schemaItems (Just $ ArrayConstraintItems itemSchema))
+            arraySchema
+    (Aeson.Array v) <- forAll $ genConstrainedJSONValue ranges schema
+    assert $ maybe True (length v >=) minItems
+    assert $ maybe True (length v <=) maxItems
+    assert $
+      maybe
+        True
+        (\b ->
+           if b
+             then isUnique v
+             else True)
+        uniqueItems
+
 prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
   where
@@ -132,22 +158,11 @@ prop_decodesSchema = property $ decoded === Right expected
       "{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"integer\"},\"user_domain\":{\"type\":\"string\"}},\"required\":[\"user_id\"]}"
     decoded :: Either P.String Schema = Aeson.eitherDecode schemaJson
     expected =
-      Schema
-      { _schemaType = SingleType ObjectType
-      , _schemaEnum = Nothing
-      , _schemaConst = Nothing
-      , _schemaRequired = Just (ObjectConstraintRequired ["user_id"])
-      , _schemaMultipleOf = Nothing
-      , _schemaMaximum = Nothing
-      , _schemaMinimum = Nothing
-      , _schemaExclusiveMaximum = Nothing
-      , _schemaExclusiveMinimum = Nothing
-      , _schemaProperties =
-          (Just . ObjectConstraintProperties) (H.fromList [("user_id", integerSchema), ("user_domain", stringSchema)])
-      , _schemaPattern = Nothing
-      , _schemaMaxLength = Nothing
-      , _schemaMinLength = Nothing
-      }
+      (set schemaRequired (Just (ObjectConstraintRequired ["user_id"])) .
+       set
+         schemaProperties
+         ((Just . ObjectConstraintProperties) (H.fromList [("user_id", integerSchema), ("user_domain", stringSchema)])))
+        objectSchema
 
 tests :: TestTree
 tests =
@@ -161,6 +176,7 @@ tests =
     , testProperty "Generates a constrained integer" prop_constrainedInteger
     , testProperty "Generates a constrained string" prop_constrainedString
     , testProperty "Generates a constrained object" prop_constrainedObject
+    , testProperty "Generates a constrained array" prop_constrainedArray
     ]
 
 main :: IO ()
@@ -169,3 +185,6 @@ main = defaultMain tests
 genSchema :: Gen Schema
 genSchema =
   Gen.element [nullSchema, booleanSchema, objectSchema, arraySchema, numberSchema, integerSchema, stringSchema]
+
+isUnique :: (Hashable a, Eq a, Foldable t) => t a -> Bool
+isUnique xs = (toList . HS.fromList . toList) xs == toList xs
