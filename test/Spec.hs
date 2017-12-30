@@ -109,6 +109,22 @@ prop_constrainedString =
         Just p -> Text.unpack v =~ Text.unpack p
         Nothing -> Text.length v >= fromMaybe 0 minLength && Text.length v <= fromMaybe 1000 maxLength
 
+prop_constrainedObject :: Property
+prop_constrainedObject =
+  property $ do
+    nonRequiredFields <-
+      forAll $
+      H.fromList <$> (Gen.list (Range.linear 1 10) $ ((,) <$> (Gen.text (Range.linear 1 10) Gen.unicode) <*> genSchema))
+    requiredFields <-
+      forAll $
+      H.fromList <$> (Gen.list (Range.linear 1 10) $ ((,) <$> (Gen.text (Range.linear 1 10) Gen.unicode) <*> genSchema))
+    let schema =
+          (set schemaProperties (Just $ ObjectConstraintProperties (nonRequiredFields `H.union` requiredFields)) .
+           set schemaRequired (Just $ ObjectConstraintRequired $ H.keys requiredFields))
+            objectSchema
+    (Aeson.Object v) <- forAll $ genConstrainedJSONValue ranges schema
+    assert $ all (`elem` (H.keys v)) (H.keys requiredFields)
+
 prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
   where
@@ -120,7 +136,7 @@ prop_decodesSchema = property $ decoded === Right expected
       { _schemaType = SingleType ObjectType
       , _schemaEnum = Nothing
       , _schemaConst = Nothing
-      , _schemaRequired = Just (ObjectKeywordRequired ["user_id"])
+      , _schemaRequired = Just (ObjectConstraintRequired ["user_id"])
       , _schemaMultipleOf = Nothing
       , _schemaMaximum = Nothing
       , _schemaMinimum = Nothing
@@ -144,6 +160,7 @@ tests =
     , testProperty "Generates a constrained number" prop_constrainedNumber
     , testProperty "Generates a constrained integer" prop_constrainedInteger
     , testProperty "Generates a constrained string" prop_constrainedString
+    , testProperty "Generates a constrained object" prop_constrainedObject
     ]
 
 main :: IO ()

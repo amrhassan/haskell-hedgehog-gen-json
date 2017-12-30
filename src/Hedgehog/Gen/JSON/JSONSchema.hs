@@ -97,8 +97,8 @@ newtype ObjectConstraintProperties =
 
 instance Aeson.FromJSON ObjectConstraintProperties
 
-newtype ObjectKeywordRequired =
-  ObjectKeywordRequired [Text]
+newtype ObjectConstraintRequired =
+  ObjectConstraintRequired [Text]
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 data Schema = Schema
@@ -106,7 +106,7 @@ data Schema = Schema
   , _schemaEnum             :: Maybe AnyConstraintEnum
   , _schemaConst            :: Maybe AnyConstraintConst
   , _schemaProperties       :: Maybe ObjectConstraintProperties
-  , _schemaRequired         :: Maybe ObjectKeywordRequired
+  , _schemaRequired         :: Maybe ObjectConstraintRequired
   , _schemaMultipleOf       :: Maybe NumberConstraintMultipleOf
   , _schemaMaximum          :: Maybe NumberConstraintMaximum
   , _schemaExclusiveMaximum :: Maybe NumberConstraintExclusiveMaximum

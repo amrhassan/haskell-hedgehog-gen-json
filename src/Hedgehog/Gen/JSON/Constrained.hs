@@ -9,6 +9,7 @@ module Hedgehog.Gen.JSON.Constrained
 import           Control.Lens
 import qualified Data.Aeson                   as Aeson
 import           Data.Fixed                   (mod')
+import qualified Data.HashMap.Strict          as HM
 import qualified Data.Scientific              as Scientific
 import qualified Data.Text                    as Text
 import           Hedgehog
@@ -45,8 +46,10 @@ genValue ranges schema
       SingleType NullType -> genNullValue
       SingleType BooleanType -> genBooleanValue
       SingleType NumberType -> genNumberValue (ranges ^. numberRange) schema
-      SingleType IntegerType -> genIntegerValue schema
-      SingleType StringType -> genString schema
+      SingleType IntegerType -> genIntegerValue (ranges ^. numberRange) schema
+      SingleType StringType -> genString (ranges ^. stringRange) schema
+      SingleType ObjectType -> genObject ranges schema
+      SingleType ArrayType -> genArray ranges schema
 
 genNullValue :: Gen Aeson.Value
 genNullValue = Gen.constant Aeson.Null
@@ -74,14 +77,14 @@ genNumberValue (NumberRange r) schema =
         (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> (y - 0.1)
         (Nothing, Nothing) -> defaultMax
 
-genIntegerValue :: Schema -> Gen Aeson.Value
-genIntegerValue schema =
+genIntegerValue :: NumberRange -> Schema -> Gen Aeson.Value
+genIntegerValue (NumberRange nr) schema =
   Aeson.Number <$>
   (Gen.filter multipleOfPredicate $
    (fromInteger . round) <$> Gen.double (Range.linearFrac (Scientific.toRealFloat vmin) (Scientific.toRealFloat vmax)))
   where
-    defaultMin = -5000
-    defaultMax = 5000
+    defaultMin = Scientific.fromFloatDigits $ Range.lowerBound (-5000) nr
+    defaultMax = Scientific.fromFloatDigits $ Range.upperBound 5000 nr
     vmin =
       case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
         (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 1)
@@ -99,8 +102,8 @@ genIntegerValue schema =
         Just (NumberConstraintMultipleOf x) -> \m -> m `mod'` x == 0
         Nothing                             -> const True
 
-genString :: Schema -> Gen Aeson.Value
-genString schema =
+genString :: StringRange -> Schema -> Gen Aeson.Value
+genString (StringRange sr) schema =
   case schema ^. schemaPattern of
     Just (StringConstraintPattern x) ->
       Gen.element $ (Aeson.String . Text.pack) <$> take 10 (Genex.genexPure [Text.unpack x])
@@ -109,8 +112,26 @@ genString schema =
     minLength =
       case schema ^. schemaMinLength of
         Just (StringConstraintMinLength x) -> x
-        Nothing                            -> 0
+        Nothing                            -> Range.lowerBound 0 sr
     maxLength =
       case schema ^. schemaMaxLength of
         Just (StringConstraintMaxLength x) -> x
-        Nothing                            -> 1000
+        Nothing                            -> Range.upperBound 1000 sr
+
+genObject :: Ranges -> Schema -> Gen Aeson.Value
+genObject ranges schema = (Aeson.Object . HM.fromList . join) <$> generatedFields
+  where
+    generatedFields = traverse (\(n, gen) -> (\m -> (\v -> (n, v)) <$> (maybeToList m)) <$> gen) generatedFieldsMaybes
+    generatedFieldsMaybes =
+      (\(n, s) ->
+         ( n
+         , (if n `elem` required
+              then fmap Just
+              else Gen.maybe)
+             (genValue ranges s))) <$>
+      HM.toList properties
+    ObjectConstraintRequired required = fromMaybe (ObjectConstraintRequired []) $ schema ^. schemaRequired
+    ObjectConstraintProperties properties = fromMaybe (ObjectConstraintProperties HM.empty) $ schema ^. schemaProperties
+
+genArray :: Ranges -> Schema -> Gen Aeson.Value
+genArray = undefined
