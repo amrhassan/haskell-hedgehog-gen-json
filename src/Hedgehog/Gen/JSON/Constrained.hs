@@ -1,5 +1,6 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoImplicitPrelude   #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Hedgehog.Gen.JSON.Constrained
   ( genValue
@@ -125,7 +126,14 @@ genObject :: Ranges -> Schema -> Gen Aeson.Value
 genObject ranges schema = (Aeson.Object . HM.fromList . join) <$> generatedFields
   where
     generatedFields = traverse (\(n, gen) -> (\m -> (\v -> (n, v)) <$> (maybeToList m)) <$> gen) generatedFieldsMaybes
-    generatedFieldsMaybes = (\(n, s) -> (n , (if n `elem` required then fmap Just else Gen.maybe) (Gen.small $ genValue ranges s))) <$> HM.toList properties
+    generatedFieldsMaybes =
+      (\(n, s) ->
+         ( n
+         , (if n `elem` required
+              then fmap Just
+              else Gen.maybe)
+             (Gen.small $ genValue ranges s))) <$>
+      HM.toList properties
     ObjectConstraintRequired required = fromMaybe (ObjectConstraintRequired []) $ schema ^. schemaRequired
     ObjectConstraintProperties properties = fromMaybe (ObjectConstraintProperties HM.empty) $ schema ^. schemaProperties
 
@@ -133,13 +141,14 @@ genArray :: Ranges -> Schema -> Gen Aeson.Value
 genArray ranges schema =
   case itemSchemaMaybe of
     Just itemSchema ->
-      Aeson.Array . Vector.fromList <$> Gen.filter (\i -> uniqueItems && isUnique i) (itemSubGen itemSchema)
+      (Aeson.Array . Vector.fromList) <$>
+      (if uniqueItems
+         then (toList <$> Gen.set finalRange (Gen.small $ genValue ranges schema))
+         else (Gen.list finalRange (Gen.small $ genValue ranges schema)))
     Nothing -> Unconstrained.genArray ranges
   where
-    itemSubGen is =
-      Gen.list (Range.linear (fromMaybe 0 minItems) (fromMaybe 10 maxItems)) $ Gen.small $ genValue ranges is
+    finalRange = Range.linear (fromMaybe 0 minItems) (fromMaybe 10 maxItems)
     itemSchemaMaybe = (\(ArrayConstraintItems items) -> items) <$> (schema ^. schemaItems)
     ArrayConstraintUniqueItems uniqueItems = fromMaybe (ArrayConstraintUniqueItems False) (schema ^. schemaUniqueItems)
     maxItems = (\(ArrayConstraintMaxItems n) -> n) <$> (schema ^. schemaMaxItems)
     minItems = (\(ArrayConstraintMinItems n) -> n) <$> (schema ^. schemaMinItems)
-    isUnique xs = (HashSet.toList . HashSet.fromList) xs == xs
