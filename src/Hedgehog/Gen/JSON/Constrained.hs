@@ -1,5 +1,4 @@
 {-# LANGUAGE NoImplicitPrelude   #-}
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Hedgehog.Gen.JSON.Constrained
@@ -11,7 +10,6 @@ import           Control.Lens
 import qualified Data.Aeson                      as Aeson
 import           Data.Fixed                      (mod')
 import qualified Data.HashMap.Strict             as HM
-import           Data.HashSet                    (HashSet)
 import qualified Data.HashSet                    as HashSet
 import qualified Data.Scientific                 as Scientific
 import qualified Data.Text                       as Text
@@ -71,15 +69,15 @@ genNumberValue (NumberRange r) schema =
     defaultMax = Scientific.fromFloatDigits $ Range.upperBound 5000 r
     vmin =
       case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
-        (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 0.1)
+        (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 1)
         (Just (NumberConstraintMinimum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> (y + 0.1)
+        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> (y + 1)
         (Nothing, Nothing) -> defaultMin
     vmax =
       case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
-        (Just (NumberConstraintMaximum x), Just (NumberConstraintExclusiveMaximum y)) -> min x (y - 0.1)
+        (Just (NumberConstraintMaximum x), Just (NumberConstraintExclusiveMaximum y)) -> min x (y - 1)
         (Just (NumberConstraintMaximum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> (y - 0.1)
+        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> (y - 1)
         (Nothing, Nothing) -> defaultMax
 
 genIntegerValue :: NumberRange -> Schema -> Gen Aeson.Value
@@ -94,13 +92,13 @@ genIntegerValue (NumberRange nr) schema =
       case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
         (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 1)
         (Just (NumberConstraintMinimum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> (y + 1)
+        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> y + 1
         (Nothing, Nothing) -> defaultMin
     vmax =
       case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
         (Just (NumberConstraintMaximum x), Just (NumberConstraintExclusiveMaximum y)) -> min x (y - 1)
         (Just (NumberConstraintMaximum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> (y - 1)
+        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> y - 1
         (Nothing, Nothing) -> defaultMax
     multipleOfPredicate =
       case schema ^. schemaMultipleOf of
