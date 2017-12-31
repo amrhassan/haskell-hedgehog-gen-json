@@ -10,17 +10,21 @@ copyright:           2017 Amr Hassan
 category:            Test
 extra-source-files:
 - README.md
+ghc-options: -Wall
 
 dependencies:
   - base >= 4.7 && < 5
   - hedgehog
   - aeson
   - protolude
-  - hjsonschema
   - bytestring
   - lens
   - vector
   - scientific
+  - text
+  - containers
+  - unordered-containers
+  - regex-genex
 
 library:
   source-dirs: src
@@ -36,3 +40,4 @@ tests:
     dependencies:
       - tasty
       - tasty-hedgehog
+      - regex-posix
