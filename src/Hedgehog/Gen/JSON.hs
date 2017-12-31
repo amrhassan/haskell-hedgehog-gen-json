@@ -15,6 +15,7 @@ module Hedgehog.Gen.JSON
   , StringRange(..)
   , ArrayRange(..)
   , ObjectRange(..)
+  , sensibleRanges
   ) where
 
 import           Control.Monad.Catch             (MonadThrow, throwM)
@@ -26,6 +27,7 @@ import qualified Hedgehog.Gen.JSON.Constrained   as Constrained
 import           Hedgehog.Gen.JSON.JSONSchema    (Schema)
 import           Hedgehog.Gen.JSON.Ranges
 import qualified Hedgehog.Gen.JSON.Unconstrained as Unconstrained
+import qualified Hedgehog.Range                  as Range
 import qualified Prelude
 import           Protolude
 
@@ -49,5 +51,14 @@ genConstrainedJSONValue = Constrained.genValue
 liftEither :: (Exception e, MonadThrow m) => Either e a -> m a
 liftEither (Left e)  = throwM e
 liftEither (Right a) = pure a
+
+sensibleRanges :: Ranges
+sensibleRanges =
+  Ranges
+  { _arrayRange = ArrayRange $ Range.linear 0 5
+  , _stringRange = StringRange $ Range.linear 0 100
+  , _numberRange = NumberRange $ Range.linearFrac 0 1000
+  , _objectRange = ObjectRange $ Range.linear 0 5
+  }
 
 instance Exception Prelude.String

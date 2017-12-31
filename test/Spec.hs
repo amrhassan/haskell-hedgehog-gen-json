@@ -20,19 +20,10 @@ import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Text.Regex.Posix
 
-ranges :: Ranges
-ranges =
-  Ranges
-  { _arrayRange = ArrayRange $ Range.linear 0 5
-  , _stringRange = StringRange $ Range.linear 0 100
-  , _numberRange = NumberRange $ Range.linearFrac 0 1000
-  , _objectRange = ObjectRange $ Range.linear 0 5
-  }
-
 prop_generatedUnconstrainedJSON :: Property
 prop_generatedUnconstrainedJSON =
   property $ do
-    v <- forAll $ genJSON ranges
+    v <- forAll $ genJSON sensibleRanges
     assert $ isJust (Aeson.decodeStrict v :: Maybe Aeson.Value)
 
 prop_constrainedValueFromEnum :: Property
@@ -40,15 +31,15 @@ prop_constrainedValueFromEnum =
   property $ do
     values <- forAll $ Gen.nonEmpty (Range.linear 1 10) (Gen.text (Range.linear 1 100) Gen.unicode)
     schema <- forAll $ over schemaEnum (const $ Just $ AnyConstraintEnum (Aeson.String <$> values)) <$> genSchema
-    v <- forAll $ genConstrainedJSON ranges schema
+    v <- forAll $ genConstrainedJSON sensibleRanges schema
     assert $ isJust $ find (== Aeson.decodeStrict v) (Just <$> values)
 
 prop_constrainedValueFromConst :: Property
 prop_constrainedValueFromConst =
   property $ do
-    c <- forAll $ genJSONValue ranges
+    c <- forAll $ genJSONValue sensibleRanges
     schema <- forAll $ over schemaConst (const $ Just $ AnyConstraintConst c) <$> genSchema
-    v <- forAll $ genConstrainedJSON ranges schema
+    v <- forAll $ genConstrainedJSON sensibleRanges schema
     Aeson.decodeStrict v === Just c
 
 prop_constrainedNumber :: Property
@@ -64,7 +55,7 @@ prop_constrainedNumber =
            set schemaExclusiveMinimum (NumberConstraintExclusiveMinimum <$> vminEx) .
            set schemaExclusiveMaximum (NumberConstraintExclusiveMaximum <$> vmaxEx))
             numberSchema
-    (Aeson.Number v) <- forAll $ genConstrainedJSONValue ranges schema
+    (Aeson.Number v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $ maybe True (v >=) vmin
     assert $ maybe True (v <=) vmax
     assert $ maybe True (v <) vmaxEx
@@ -85,7 +76,7 @@ prop_constrainedInteger =
            set schemaExclusiveMaximum (NumberConstraintExclusiveMaximum <$> vmaxEx) .
            set schemaMultipleOf (NumberConstraintMultipleOf <$> multipleOf))
             integerSchema
-    (Aeson.Number v) <- forAll $ genConstrainedJSONValue ranges schema
+    (Aeson.Number v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $ maybe True (v >=) vmin
     assert $ maybe True (v <=) vmax
     assert $ maybe True (v <) vmaxEx
@@ -104,7 +95,7 @@ prop_constrainedString =
            set schemaMinLength (StringConstraintMinLength <$> minLength) .
            set schemaMaxLength (StringConstraintMaxLength <$> maxLength))
             stringSchema
-    (Aeson.String v) <- forAll $ genConstrainedJSONValue ranges schema
+    (Aeson.String v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $
       case regexp of
         Just p -> Text.unpack v =~ Text.unpack p
@@ -123,7 +114,7 @@ prop_constrainedObject =
           (set schemaProperties (Just $ ObjectConstraintProperties (nonRequiredFields `H.union` requiredFields)) .
            set schemaRequired (Just $ ObjectConstraintRequired $ H.keys requiredFields))
             objectSchema
-    (Aeson.Object v) <- forAll $ genConstrainedJSONValue ranges schema
+    (Aeson.Object v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $ all (`elem` (H.keys v)) (H.keys requiredFields)
 
 prop_constrainedArray :: Property
@@ -139,7 +130,7 @@ prop_constrainedArray =
            set schemaUniqueItems (ArrayConstraintUniqueItems <$> uniqueItems) .
            set schemaItems (Just $ ArrayConstraintItems itemSchema))
             arraySchema
-    (Aeson.Array v) <- forAll $ genConstrainedJSONValue ranges schema
+    (Aeson.Array v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $ maybe True (length v >=) minItems
     assert $ maybe True (length v <=) maxItems
     assert $
