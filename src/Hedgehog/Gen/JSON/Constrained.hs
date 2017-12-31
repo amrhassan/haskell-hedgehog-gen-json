@@ -71,13 +71,13 @@ genNumberValue (NumberRange r) schema =
       case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
         (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 1)
         (Just (NumberConstraintMinimum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> (y + 1)
+        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> y + 1
         (Nothing, Nothing) -> defaultMin
     vmax =
       case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
         (Just (NumberConstraintMaximum x), Just (NumberConstraintExclusiveMaximum y)) -> min x (y - 1)
         (Just (NumberConstraintMaximum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> (y - 1)
+        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> y - 1
         (Nothing, Nothing) -> defaultMax
 
 genIntegerValue :: NumberRange -> Schema -> Gen Aeson.Value
