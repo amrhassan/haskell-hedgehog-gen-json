@@ -25,6 +25,7 @@ dependencies:
   - containers
   - unordered-containers
   - regex-genex
+  - exceptions
 
 library:
   source-dirs: src

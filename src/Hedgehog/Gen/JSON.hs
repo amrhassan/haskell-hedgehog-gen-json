@@ -1,5 +1,7 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE NoImplicitPrelude    #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Hedgehog.Gen.JSON
   ( genJSON
@@ -15,6 +17,7 @@ module Hedgehog.Gen.JSON
   , ObjectRange(..)
   ) where
 
+import           Control.Monad.Catch             (MonadThrow, throwM)
 import qualified Data.Aeson                      as Aeson
 import qualified Data.ByteString                 as BS
 import qualified Data.ByteString.Lazy            as LBS
@@ -23,12 +26,13 @@ import qualified Hedgehog.Gen.JSON.Constrained   as Constrained
 import           Hedgehog.Gen.JSON.JSONSchema    (Schema)
 import           Hedgehog.Gen.JSON.Ranges
 import qualified Hedgehog.Gen.JSON.Unconstrained as Unconstrained
+import qualified Prelude
 import           Protolude
 
-readSchema :: FilePath -> IO (Either Text Schema)
+readSchema :: (MonadIO m, MonadThrow m) => FilePath -> m Schema
 readSchema fp = do
-  bytes <- BS.readFile fp
-  pure $ maybeToEither "failed to decode JSON Schema" (Aeson.decodeStrict bytes)
+  bytes <- liftIO $ BS.readFile fp
+  liftEither $ Aeson.eitherDecodeStrict bytes
 
 genJSON :: Ranges -> Gen ByteString
 genJSON ranges = (LBS.toStrict . Aeson.encode) <$> genJSONValue ranges
@@ -41,3 +45,9 @@ genConstrainedJSON ranges schema = (LBS.toStrict . Aeson.encode) <$> genConstrai
 
 genConstrainedJSONValue :: Ranges -> Schema -> Gen Aeson.Value
 genConstrainedJSONValue = Constrained.genValue
+
+liftEither :: (Exception e, MonadThrow m) => Either e a -> m a
+liftEither (Left e)  = throwM e
+liftEither (Right a) = pure a
+
+instance Exception Prelude.String
