@@ -130,8 +130,8 @@ prop_constrainedArray :: Property
 prop_constrainedArray =
   property $ do
     uniqueItems <- forAll $ Gen.maybe Gen.bool
-    minItems <- forAll $ Gen.maybe $ Gen.integral (Range.constant 0 0)
-    maxItems <- forAll $ Gen.maybe $ Gen.integral (Range.constant 1 1)
+    minItems <- forAll $ Gen.maybe $ Gen.integral (Range.linear 0 2)
+    maxItems <- forAll $ Gen.maybe $ Gen.integral (Range.linear 3 5)
     itemSchema <- forAll genSchema
     let schema =
           (set schemaMinItems (ArrayConstraintMinItems <$> minItems) .

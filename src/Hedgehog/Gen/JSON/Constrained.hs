@@ -11,6 +11,7 @@ import           Control.Lens
 import qualified Data.Aeson                      as Aeson
 import           Data.Fixed                      (mod')
 import qualified Data.HashMap.Strict             as HM
+import           Data.HashSet                    (HashSet)
 import qualified Data.HashSet                    as HashSet
 import qualified Data.Scientific                 as Scientific
 import qualified Data.Text                       as Text
@@ -143,8 +144,8 @@ genArray ranges schema =
     Just itemSchema ->
       (Aeson.Array . Vector.fromList) <$>
       (if uniqueItems
-         then (toList <$> Gen.set finalRange (Gen.small $ genValue ranges schema))
-         else (Gen.list finalRange (Gen.small $ genValue ranges schema)))
+         then (toList <$> genUniqueList finalRange (Gen.small $ genValue ranges itemSchema))
+         else (Gen.list finalRange (Gen.small $ genValue ranges itemSchema)))
     Nothing -> Unconstrained.genArray ranges
   where
     finalRange = Range.linear (fromMaybe 0 minItems) (fromMaybe 10 maxItems)
@@ -152,3 +153,17 @@ genArray ranges schema =
     ArrayConstraintUniqueItems uniqueItems = fromMaybe (ArrayConstraintUniqueItems False) (schema ^. schemaUniqueItems)
     maxItems = (\(ArrayConstraintMaxItems n) -> n) <$> (schema ^. schemaMaxItems)
     minItems = (\(ArrayConstraintMinItems n) -> n) <$> (schema ^. schemaMinItems)
+
+uniqueList :: (Eq a, Hashable a) => [a] -> [a]
+uniqueList = toList . HashSet.fromList
+
+genUniqueList :: (MonadGen m, Hashable a, Eq a) => Range Int -> m a -> m [a]
+genUniqueList range gen =
+  Gen.sized $ \size -> do
+    initialList <- initialListGen
+    if length initialList < Range.lowerBound size range
+      then (\moreList -> take (Range.upperBound size range) (initialList ++ moreList)) <$> moreListGen
+      else pure initialList
+  where
+    initialListGen = uniqueList <$> Gen.list range gen
+    moreListGen = Gen.small $ genUniqueList range gen
