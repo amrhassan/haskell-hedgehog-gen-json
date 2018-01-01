@@ -35,24 +35,25 @@ genValue ranges schema
       Nothing                     -> empty
   | otherwise =
     case schema ^. schemaType of
-      MultipleTypes (t :| []) -> genValue ranges (over schemaType (const $ SingleType t) schema)
-      MultipleTypes (t :| [t']) ->
+      Nothing -> Unconstrained.genValue ranges
+      Just (MultipleTypes (t :| [])) -> genValue ranges (set schemaType (Just $ SingleType t) schema)
+      Just (MultipleTypes (t :| [t'])) ->
         Gen.choice
-          [ genValue ranges (over schemaType (const $ SingleType t) schema)
-          , genValue ranges (over schemaType (const $ SingleType t') schema)
+          [ genValue ranges (set schemaType (Just $ SingleType t) schema)
+          , genValue ranges (set schemaType (Just $ SingleType t') schema)
           ]
-      MultipleTypes (t :| (t':ts)) ->
+      Just (MultipleTypes (t :| (t':ts))) ->
         Gen.choice
-          [ genValue ranges (over schemaType (const $ SingleType t) schema)
-          , genValue ranges (over schemaType (const $ MultipleTypes (t' :| ts)) schema)
+          [ genValue ranges (set schemaType (Just $ SingleType t) schema)
+          , genValue ranges (set schemaType (Just $ MultipleTypes (t' :| ts)) schema)
           ]
-      SingleType NullType -> genNullValue
-      SingleType BooleanType -> genBooleanValue
-      SingleType NumberType -> genNumberValue (ranges ^. numberRange) schema
-      SingleType IntegerType -> genIntegerValue (ranges ^. numberRange) schema
-      SingleType StringType -> genString (ranges ^. stringRange) schema
-      SingleType ObjectType -> genObject ranges schema
-      SingleType ArrayType -> genArray ranges schema
+      Just (SingleType NullType) -> genNullValue
+      Just (SingleType BooleanType) -> genBooleanValue
+      Just (SingleType NumberType) -> genNumberValue (ranges ^. numberRange) schema
+      Just (SingleType IntegerType) -> genIntegerValue (ranges ^. numberRange) schema
+      Just (SingleType StringType) -> genString (ranges ^. stringRange) schema
+      Just (SingleType ObjectType) -> genObject ranges schema
+      Just (SingleType ArrayType) -> genArray ranges schema
 
 genNullValue :: Gen Aeson.Value
 genNullValue = Gen.constant Aeson.Null

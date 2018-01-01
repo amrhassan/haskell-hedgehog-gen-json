@@ -120,7 +120,7 @@ newtype ArrayConstraintUniqueItems =
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 data Schema = Schema
-  { _schemaType             :: AnyConstraintType
+  { _schemaType             :: Maybe AnyConstraintType
   , _schemaEnum             :: Maybe AnyConstraintEnum
   , _schemaConst            :: Maybe AnyConstraintConst
   , _schemaProperties       :: Maybe ObjectConstraintProperties
@@ -142,7 +142,7 @@ data Schema = Schema
 nullSchema :: Schema
 nullSchema =
   Schema
-  { _schemaType = SingleType NullType
+  { _schemaType = Just $ SingleType NullType
   , _schemaEnum = Nothing
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
@@ -164,7 +164,7 @@ nullSchema =
 booleanSchema :: Schema
 booleanSchema =
   Schema
-  { _schemaType = SingleType BooleanType
+  { _schemaType = Just $ SingleType BooleanType
   , _schemaEnum = Nothing
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
@@ -186,7 +186,7 @@ booleanSchema =
 objectSchema :: Schema
 objectSchema =
   Schema
-  { _schemaType = SingleType ObjectType
+  { _schemaType = Just $ SingleType ObjectType
   , _schemaEnum = Nothing
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
@@ -208,7 +208,7 @@ objectSchema =
 arraySchema :: Schema
 arraySchema =
   Schema
-  { _schemaType = SingleType ArrayType
+  { _schemaType = Just $ SingleType ArrayType
   , _schemaEnum = Nothing
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
@@ -230,7 +230,7 @@ arraySchema =
 numberSchema :: Schema
 numberSchema =
   Schema
-  { _schemaType = SingleType NumberType
+  { _schemaType = Just $ SingleType NumberType
   , _schemaEnum = Nothing
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
@@ -252,7 +252,7 @@ numberSchema =
 integerSchema :: Schema
 integerSchema =
   Schema
-  { _schemaType = SingleType IntegerType
+  { _schemaType = Just $ SingleType IntegerType
   , _schemaEnum = Nothing
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
@@ -274,7 +274,7 @@ integerSchema =
 stringSchema :: Schema
 stringSchema =
   Schema
-  { _schemaType = SingleType StringType
+  { _schemaType = Just $ SingleType StringType
   , _schemaEnum = Nothing
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
@@ -298,7 +298,7 @@ makeLenses ''Schema
 instance Aeson.FromJSON Schema where
   parseJSON =
     withObject "Schema" $ \obj ->
-      Schema <$> obj .: "type" <*> obj .:? "enum" <*> obj .:? "const" <*> obj .:? "properties" <*> obj .:? "required" <*>
+      Schema <$> obj .:? "type" <*> obj .:? "enum" <*> obj .:? "const" <*> obj .:? "properties" <*> obj .:? "required" <*>
       obj .:? "multipleOf" <*>
       obj .:? "maximum" <*>
       obj .:? "exclusiveMaximum" <*>
