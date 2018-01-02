@@ -78,14 +78,16 @@ genIntegerValue nr schema = do
 genBoundedNumber :: NumberRange -> Schema -> Gen Double
 genBoundedNumber (NumberRange nr) schema =
   Gen.sized $ \size ->
-    let range = Range.linearFrac (Scientific.toRealFloat $ vmin size) (Scientific.toRealFloat $ vmax size)
-    in Gen.double range
+    let sizedmin = Scientific.toRealFloat $ vmin size
+    in let sizedmax = Scientific.toRealFloat $ vmax size
+       in let range = Range.linearFrac sizedmin sizedmax
+          in Gen.filter (\n -> (n >= sizedmin) && (n <= sizedmax)) $ Gen.double range
   where
     vmin sz =
       case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
         (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 1)
         (Just (NumberConstraintMinimum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> y + 2
+        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> y + 1
         (Nothing, Nothing) -> Scientific.fromFloatDigits $ Range.lowerBound sz nr
     vmax sz =
       case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
