@@ -132,13 +132,16 @@ genArray :: Ranges -> Schema -> Gen Aeson.Value
 genArray ranges schema =
   case itemSchemaMaybe of
     Just itemSchema ->
-      (Aeson.Array . Vector.fromList) <$>
-      (if uniqueItems
-         then (toList <$> genUniqueList finalRange (Gen.small $ genValue ranges itemSchema))
-         else (Gen.list finalRange (Gen.small $ genValue ranges itemSchema)))
+      Gen.sized $ \sz ->
+        (Aeson.Array . Vector.fromList) <$>
+        if uniqueItems
+          then genUniqueList (finalRange sz) (Gen.small $ genValue ranges itemSchema)
+          else Gen.list (finalRange sz) (Gen.small $ genValue ranges itemSchema)
     Nothing -> Unconstrained.genArray ranges
   where
-    finalRange = Range.linear (fromMaybe 0 minItems) (fromMaybe 10 maxItems)
+    (ArrayRange ar) = ranges ^. arrayRange
+    finalRange sz =
+      Range.linear (fromMaybe (Range.lowerBound sz ar) minItems) (fromMaybe (Range.upperBound sz ar) maxItems)
     itemSchemaMaybe = (\(ArrayConstraintItems items) -> items) <$> (schema ^. schemaItems)
     ArrayConstraintUniqueItems uniqueItems = fromMaybe (ArrayConstraintUniqueItems False) (schema ^. schemaUniqueItems)
     maxItems = (\(ArrayConstraintMaxItems n) -> n) <$> (schema ^. schemaMaxItems)
