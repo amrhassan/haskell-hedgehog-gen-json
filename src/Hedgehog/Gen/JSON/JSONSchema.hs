@@ -9,7 +9,7 @@ module Hedgehog.Gen.JSON.JSONSchema where
 
 import           Control.Lens        (makeLenses)
 import           Control.Monad.Fail
-import           Data.Aeson          (withObject, (.:), (.:?))
+import           Data.Aeson          (withObject, (.:?))
 import qualified Data.Aeson          as Aeson
 import qualified Data.ByteString     as BS
 import qualified Data.HashMap.Strict as HM

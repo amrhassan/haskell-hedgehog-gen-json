@@ -62,65 +62,54 @@ genBooleanValue :: Gen Aeson.Value
 genBooleanValue = Aeson.Bool <$> Gen.bool
 
 genNumberValue :: NumberRange -> Schema -> Gen Aeson.Value
-genNumberValue (NumberRange r) schema =
-  (Aeson.Number . Scientific.fromFloatDigits) <$>
-  Gen.double (Range.linearFrac (Scientific.toRealFloat vmin) (Scientific.toRealFloat vmax))
-  where
-    defaultMin = Scientific.fromFloatDigits $ Range.lowerBound (-5000) r
-    defaultMax = Scientific.fromFloatDigits $ Range.upperBound 5000 r
-    vmin =
-      case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
-        (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 1)
-        (Just (NumberConstraintMinimum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> y + 1
-        (Nothing, Nothing) -> defaultMin
-    vmax =
-      case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
-        (Just (NumberConstraintMaximum x), Just (NumberConstraintExclusiveMaximum y)) -> min x (y - 1)
-        (Just (NumberConstraintMaximum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> y - 1
-        (Nothing, Nothing) -> defaultMax
+genNumberValue nr schema = (Aeson.Number . Scientific.fromFloatDigits) <$> genBoundedNumber nr schema
 
 genIntegerValue :: NumberRange -> Schema -> Gen Aeson.Value
-genIntegerValue (NumberRange nr) schema =
-  Aeson.Number <$>
-  (Gen.filter multipleOfPredicate $
-   (fromInteger . round) <$> Gen.double (Range.linearFrac (Scientific.toRealFloat vmin) (Scientific.toRealFloat vmax)))
+genIntegerValue nr schema = do
+  let boundedNumber = (fromInteger . round) <$> genBoundedNumber nr schema
+  Aeson.Number <$> Gen.filter multipleOfPredicate boundedNumber
   where
-    defaultMin = Scientific.fromFloatDigits $ Range.lowerBound (-5000) nr
-    defaultMax = Scientific.fromFloatDigits $ Range.upperBound 5000 nr
-    vmin =
-      case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
-        (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 1)
-        (Just (NumberConstraintMinimum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> y + 1
-        (Nothing, Nothing) -> defaultMin
-    vmax =
-      case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
-        (Just (NumberConstraintMaximum x), Just (NumberConstraintExclusiveMaximum y)) -> min x (y - 1)
-        (Just (NumberConstraintMaximum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> y - 1
-        (Nothing, Nothing) -> defaultMax
     multipleOfPredicate =
       case schema ^. schemaMultipleOf of
         Just (NumberConstraintMultipleOf x) -> \m -> m `mod'` x == 0
         Nothing                             -> const True
 
+-- Based on min/max/minex/maxex bounds from the Schema as well as the passed range
+genBoundedNumber :: NumberRange -> Schema -> Gen Double
+genBoundedNumber (NumberRange nr) schema =
+  Gen.sized $ \size ->
+    let range = Range.linearFrac (Scientific.toRealFloat $ vmin size) (Scientific.toRealFloat $ vmax size)
+    in Gen.double range
+  where
+    vmin sz =
+      case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
+        (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 1)
+        (Just (NumberConstraintMinimum x), Nothing) -> x
+        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> y + 2
+        (Nothing, Nothing) -> Scientific.fromFloatDigits $ Range.lowerBound sz nr
+    vmax sz =
+      case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
+        (Just (NumberConstraintMaximum x), Just (NumberConstraintExclusiveMaximum y)) -> min x (y - 1)
+        (Just (NumberConstraintMaximum x), Nothing) -> x
+        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> y - 1
+        (Nothing, Nothing) -> Scientific.fromFloatDigits $ Range.upperBound sz nr
+
 genString :: StringRange -> Schema -> Gen Aeson.Value
 genString (StringRange sr) schema =
-  case schema ^. schemaPattern of
-    Just (StringConstraintPattern x) ->
-      Gen.element $ (Aeson.String . Text.pack) <$> take 10 (Genex.genexPure [Text.unpack x])
-    Nothing -> Aeson.String <$> Gen.text (Range.linear minLength maxLength) Gen.unicode
+  Gen.sized $ \size ->
+    case schema ^. schemaPattern of
+      Just (StringConstraintPattern x) ->
+        Gen.element $ (Aeson.String . Text.pack) <$> take 10 (Genex.genexPure [Text.unpack x])
+      Nothing -> Aeson.String <$> Gen.text (Range.linear (minLength size) (maxLength size)) Gen.unicode
   where
-    minLength =
+    minLength sz =
       case schema ^. schemaMinLength of
         Just (StringConstraintMinLength x) -> x
-        Nothing                            -> Range.lowerBound 0 sr
-    maxLength =
+        Nothing                            -> Range.lowerBound sz sr
+    maxLength sz =
       case schema ^. schemaMaxLength of
         Just (StringConstraintMaxLength x) -> x
-        Nothing                            -> Range.upperBound 1000 sr
+        Nothing                            -> Range.upperBound sz sr
 
 genObject :: Ranges -> Schema -> Gen Aeson.Value
 genObject ranges schema = (Aeson.Object . HM.fromList . join) <$> generatedFields
