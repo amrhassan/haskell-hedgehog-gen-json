@@ -77,24 +77,36 @@ genIntegerValue nr schema = do
 -- Based on min/max/minex/maxex bounds from the Schema as well as the passed range
 genBoundedNumber :: NumberRange -> Schema -> Gen Double
 genBoundedNumber (NumberRange nr) schema =
-  Gen.sized $ \size ->
-    let sizedmin = Scientific.toRealFloat $ vmin size
-    in let sizedmax = Scientific.toRealFloat $ vmax size
-       in let range = Range.linearFrac sizedmin sizedmax
-          in Gen.filter (\n -> (n >= sizedmin) && (n <= sizedmax)) $ Gen.double range
+  Gen.filter (\a -> and $ ($ a) <$> filters) (Gen.sized $ \size -> Gen.double (range size))
   where
-    vmin sz =
-      case (schema ^. schemaMinimum, schema ^. schemaExclusiveMinimum) of
-        (Just (NumberConstraintMinimum x), Just (NumberConstraintExclusiveMinimum y)) -> max x (y + 1)
-        (Just (NumberConstraintMinimum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMinimum y)) -> y + 1
-        (Nothing, Nothing) -> Scientific.fromFloatDigits $ Range.lowerBound sz nr
-    vmax sz =
-      case (schema ^. schemaMaximum, schema ^. schemaExclusiveMaximum) of
-        (Just (NumberConstraintMaximum x), Just (NumberConstraintExclusiveMaximum y)) -> min x (y - 1)
-        (Just (NumberConstraintMaximum x), Nothing) -> x
-        (Nothing, Just (NumberConstraintExclusiveMaximum y)) -> y - 1
-        (Nothing, Nothing) -> Scientific.fromFloatDigits $ Range.upperBound sz nr
+    minExFilter =
+      case schema ^. schemaExclusiveMinimum of
+        Just (NumberConstraintExclusiveMinimum x) -> (> Scientific.toRealFloat x)
+        Nothing -> const True
+    maxExFilter =
+      case schema ^. schemaExclusiveMaximum of
+        Just (NumberConstraintExclusiveMaximum x) -> (< Scientific.toRealFloat x)
+        Nothing -> const True
+    minFilter =
+      case schema ^. schemaMinimum of
+        Just (NumberConstraintMinimum x) -> (>= Scientific.toRealFloat x)
+        Nothing                          -> const True
+    maxFilter =
+      case schema ^. schemaMaximum of
+        Just (NumberConstraintMaximum x) -> (<= Scientific.toRealFloat x)
+        Nothing                          -> const True
+    filters = [minExFilter, maxExFilter, minFilter, maxFilter]
+    range sz = Range.linearFrac (rangeLower sz) (rangeUpper sz)
+    rangeLower sz =
+      maybe
+        (Range.lowerBound sz nr)
+        (\(NumberConstraintMinimum v) -> Scientific.toRealFloat v)
+        (schema ^. schemaMinimum)
+    rangeUpper sz =
+      maybe
+        (Range.upperBound sz nr)
+        (\(NumberConstraintMaximum v) -> Scientific.toRealFloat v)
+        (schema ^. schemaMaximum)
 
 genString :: StringRange -> Schema -> Gen Aeson.Value
 genString (StringRange sr) schema =
