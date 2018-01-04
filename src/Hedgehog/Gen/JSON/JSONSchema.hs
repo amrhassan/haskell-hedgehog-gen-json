@@ -1,9 +1,9 @@
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StrictData        #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-} -- Removing this extension will cause no type check errors, but will break the JSON decoders
+{-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE StrictData                 #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 module Hedgehog.Gen.JSON.JSONSchema where
 
@@ -51,17 +51,17 @@ instance Aeson.FromJSON AnyConstraintType where
   parseJSON (Aeson.Array ts) = (MultipleTypes . NonEmpty.fromList . toList) <$> traverse Aeson.parseJSON ts
   parseJSON _ = fail "type must be either a string or an array of strings"
 
-newtype AnyConstraintEnum =
-  AnyConstraintEnum (NonEmpty Aeson.Value)
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype AnyConstraintEnum = AnyConstraintEnum
+  { unArrayConstraintEnum :: NonEmpty Aeson.Value
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype AnyConstraintConst =
-  AnyConstraintConst Aeson.Value
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype AnyConstraintConst = AnyConstraintConst
+  { unArrayConstraintConst :: Aeson.Value
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberConstraintMultipleOf =
-  NumberConstraintMultipleOf { unNumberConstraintMultipleOf :: Scientific }
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype NumberConstraintMultipleOf = NumberConstraintMultipleOf
+  { unNumberConstraintMultipleOf :: Scientific
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 newtype NumberConstraintMaximum = NumberConstraintMaximum
   { unNumberConstraintMaximum :: Scientific
@@ -79,17 +79,17 @@ newtype NumberConstraintExclusiveMinimum = NumberConstraintExclusiveMinimum
   { unNumberConstraintExclusiveMinimum :: Scientific
   } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype StringConstraintPattern =
-  StringConstraintPattern Text
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype StringConstraintPattern = StringConstraintPattern
+  { unStringConstraintPattern :: Text
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype StringConstraintMaxLength =
-  StringConstraintMaxLength Int
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype StringConstraintMaxLength = StringConstraintMaxLength
+  { unStringConstraintMaxLength :: Int
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype StringConstraintMinLength =
-  StringConstraintMinLength Int
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype StringConstraintMinLength = StringConstraintMinLength
+  { unStringConstraintMinLength :: Int
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 newtype ObjectConstraintProperties =
   ObjectConstraintProperties (HM.HashMap Text Schema)
@@ -99,25 +99,25 @@ instance Aeson.FromJSON ObjectConstraintProperties
 
 instance Aeson.FromJSON ArrayConstraintItems
 
-newtype ObjectConstraintRequired =
-  ObjectConstraintRequired [Text]
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype ObjectConstraintRequired = ObjectConstraintRequired
+  { unObjectConstraintRequired :: [Text]
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype ArrayConstraintItems =
-  ArrayConstraintItems Schema
-  deriving (Generic, Eq, Show)
+newtype ArrayConstraintItems = ArrayConstraintItems
+  { unArrayConstraintItems :: Schema
+  } deriving (Generic, Eq, Show)
 
-newtype ArrayConstraintMaxItems =
-  ArrayConstraintMaxItems Int
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype ArrayConstraintMaxItems = ArrayConstraintMaxItems
+  { unArrayConstraintMaxItems :: Int
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype ArrayConstraintMinItems =
-  ArrayConstraintMinItems Int
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype ArrayConstraintMinItems = ArrayConstraintMinItems
+  { unArrayConstraintMinItems :: Int
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype ArrayConstraintUniqueItems =
-  ArrayConstraintUniqueItems Bool
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype ArrayConstraintUniqueItems = ArrayConstraintUniqueItems
+  { unArrayConstraintUniqueItems :: Bool
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 data Schema = Schema
   { _schemaType             :: Maybe AnyConstraintType

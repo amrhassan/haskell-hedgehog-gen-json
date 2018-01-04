@@ -11,8 +11,8 @@ import           Hedgehog.Gen.JSON.Ranges
 genNull :: Gen A.Value
 genNull = pure A.Null
 
-genString :: StringRange -> Gen A.Value
-genString (StringRange sr) = A.String <$> Gen.text sr Gen.unicode
+genStringValue :: StringRange -> Gen A.Value
+genStringValue (StringRange sr) = A.String <$> Gen.text sr Gen.unicode
 
 genBool :: Gen A.Value
 genBool = A.Bool <$> Gen.bool
@@ -22,7 +22,7 @@ genNumber (NumberRange nr) = (A.Number . Scientific.fromFloatDigits) <$> Gen.dou
 
 genArray :: Ranges -> Gen A.Value
 genArray ranges = do
-  let gen = Gen.recursive Gen.choice [genBool, genNumber nr, genString sr] [genArray ranges, genObj ranges]
+  let gen = Gen.recursive Gen.choice [genBool, genNumber nr, genStringValue sr] [genArray ranges, genObj ranges]
   (A.Array . Vector.fromList) <$> Gen.list ar gen
   where
     nr = ranges ^. numberRange
@@ -39,7 +39,7 @@ genValue :: Ranges -> Gen A.Value
 genValue ranges =
   Gen.choice
     [ genNull
-    , genString (ranges ^. stringRange)
+    , genStringValue (ranges ^. stringRange)
     , genBool
     , genNumber (ranges ^. numberRange)
     , genArray ranges

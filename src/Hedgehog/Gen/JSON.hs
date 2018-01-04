@@ -56,8 +56,9 @@ sensibleRanges :: Ranges
 sensibleRanges =
   Ranges
   { _arrayRange = ArrayRange $ Range.linear 0 5
-  , _stringRange = StringRange $ Range.linear 0 100
-  , _numberRange = NumberRange $ Range.linearFrac 0 1000
+  , _stringRange = StringRange $ Range.linear 0 1000
+  , _numberRange = NumberRange $ Range.linearFrac (-1000) 1000
+  , _integerRange = IntegerRange $ Range.linear (-1000) 1000
   , _objectRange = ObjectRange $ Range.linear 0 5
   }
 
