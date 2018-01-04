@@ -60,24 +60,24 @@ newtype AnyConstraintConst =
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 newtype NumberConstraintMultipleOf =
-  NumberConstraintMultipleOf Scientific
+  NumberConstraintMultipleOf { unNumberConstraintMultipleOf :: Scientific }
   deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberConstraintMaximum =
-  NumberConstraintMaximum Scientific
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype NumberConstraintMaximum = NumberConstraintMaximum
+  { unNumberConstraintMaximum :: Scientific
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberConstraintExclusiveMaximum =
-  NumberConstraintExclusiveMaximum Scientific
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype NumberConstraintExclusiveMaximum = NumberConstraintExclusiveMaximum
+  { unNumberConstraintExclusiveMaximum :: Scientific
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberConstraintMinimum =
-  NumberConstraintMinimum Scientific
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype NumberConstraintMinimum = NumberConstraintMinimum
+  { unNumberConstraintMinimum :: Scientific
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberConstraintExclusiveMinimum =
-  NumberConstraintExclusiveMinimum Scientific
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype NumberConstraintExclusiveMinimum = NumberConstraintExclusiveMinimum
+  { unNumberConstraintExclusiveMinimum :: Scientific
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 newtype StringConstraintPattern =
   StringConstraintPattern Text

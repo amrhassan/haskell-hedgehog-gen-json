@@ -80,33 +80,25 @@ genBoundedNumber (NumberRange nr) schema =
   Gen.filter (\a -> and $ ($ a) <$> filters) (Gen.sized $ \size -> Gen.double (range size))
   where
     minExFilter =
-      case schema ^. schemaExclusiveMinimum of
-        Just (NumberConstraintExclusiveMinimum x) -> (> Scientific.toRealFloat x)
-        Nothing -> const True
+      maybe
+        (const True)
+        ((\b -> (> b)) . Scientific.toRealFloat . unNumberConstraintExclusiveMinimum)
+        (schema ^. schemaExclusiveMinimum)
     maxExFilter =
-      case schema ^. schemaExclusiveMaximum of
-        Just (NumberConstraintExclusiveMaximum x) -> (< Scientific.toRealFloat x)
-        Nothing -> const True
+      maybe
+        (const True)
+        ((>) . Scientific.toRealFloat . unNumberConstraintExclusiveMaximum)
+        (schema ^. schemaExclusiveMaximum)
     minFilter =
-      case schema ^. schemaMinimum of
-        Just (NumberConstraintMinimum x) -> (>= Scientific.toRealFloat x)
-        Nothing                          -> const True
+      maybe (const True) ((\b -> (>= b)) . Scientific.toRealFloat . unNumberConstraintMinimum) (schema ^. schemaMinimum)
     maxFilter =
-      case schema ^. schemaMaximum of
-        Just (NumberConstraintMaximum x) -> (<= Scientific.toRealFloat x)
-        Nothing                          -> const True
+      maybe (const True) ((\b -> (<= b)) . Scientific.toRealFloat . unNumberConstraintMaximum) (schema ^. schemaMaximum)
     filters = [minExFilter, maxExFilter, minFilter, maxFilter]
     range sz = Range.linearFrac (rangeLower sz) (rangeUpper sz)
     rangeLower sz =
-      maybe
-        (Range.lowerBound sz nr)
-        (\(NumberConstraintMinimum v) -> Scientific.toRealFloat v)
-        (schema ^. schemaMinimum)
+      maybe (Range.lowerBound sz nr) (Scientific.toRealFloat . unNumberConstraintMinimum) (schema ^. schemaMinimum)
     rangeUpper sz =
-      maybe
-        (Range.upperBound sz nr)
-        (\(NumberConstraintMaximum v) -> Scientific.toRealFloat v)
-        (schema ^. schemaMaximum)
+      maybe (Range.upperBound sz nr) (Scientific.toRealFloat . unNumberConstraintMaximum) (schema ^. schemaMaximum)
 
 genString :: StringRange -> Schema -> Gen Aeson.Value
 genString (StringRange sr) schema =
