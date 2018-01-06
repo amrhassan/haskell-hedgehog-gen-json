@@ -1,9 +1,9 @@
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StrictData        #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE StrictData                 #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 module Hedgehog.Gen.JSON.JSONSchema where
 
@@ -51,73 +51,86 @@ instance Aeson.FromJSON AnyConstraintType where
   parseJSON (Aeson.Array ts) = (MultipleTypes . NonEmpty.fromList . toList) <$> traverse Aeson.parseJSON ts
   parseJSON _ = fail "type must be either a string or an array of strings"
 
-newtype AnyConstraintEnum =
-  AnyConstraintEnum (NonEmpty Aeson.Value)
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype AnyConstraintEnum = AnyConstraintEnum
+  { unArrayConstraintEnum :: NonEmpty Aeson.Value
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype AnyConstraintConst =
-  AnyConstraintConst Aeson.Value
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype AnyConstraintConst = AnyConstraintConst
+  { unArrayConstraintConst :: Aeson.Value
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberConstraintMultipleOf =
-  NumberConstraintMultipleOf Scientific
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype NumberConstraintMultipleOf = NumberConstraintMultipleOf
+  { unNumberConstraintMultipleOf :: Scientific
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberConstraintMaximum =
-  NumberConstraintMaximum Scientific
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype NumberConstraintMaximum = NumberConstraintMaximum
+  { unNumberConstraintMaximum :: Scientific
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberConstraintExclusiveMaximum =
-  NumberConstraintExclusiveMaximum Scientific
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype NumberConstraintExclusiveMaximum = NumberConstraintExclusiveMaximum
+  { unNumberConstraintExclusiveMaximum :: Scientific
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberConstraintMinimum =
-  NumberConstraintMinimum Scientific
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype NumberConstraintMinimum = NumberConstraintMinimum
+  { unNumberConstraintMinimum :: Scientific
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype NumberConstraintExclusiveMinimum =
-  NumberConstraintExclusiveMinimum Scientific
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype NumberConstraintExclusiveMinimum = NumberConstraintExclusiveMinimum
+  { unNumberConstraintExclusiveMinimum :: Scientific
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype StringConstraintPattern =
-  StringConstraintPattern Text
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype StringConstraintPattern = StringConstraintPattern
+  { unStringConstraintPattern :: Text
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype StringConstraintMaxLength =
-  StringConstraintMaxLength Int
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype StringConstraintMaxLength = StringConstraintMaxLength
+  { unStringConstraintMaxLength :: Int
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype StringConstraintMinLength =
-  StringConstraintMinLength Int
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype StringConstraintMinLength = StringConstraintMinLength
+  { unStringConstraintMinLength :: Int
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype ObjectConstraintProperties =
-  ObjectConstraintProperties (HM.HashMap Text Schema)
-  deriving (Generic, Eq, Show)
+instance Aeson.FromJSON Schema where
+  parseJSON =
+    withObject "Schema" $ \obj ->
+      Schema <$> obj .:? "type" <*> obj .:? "enum" <*> obj .:? "const" <*> obj .:? "properties" <*> obj .:? "required" <*>
+      obj .:? "multipleOf" <*>
+      obj .:? "maximum" <*>
+      obj .:? "exclusiveMaximum" <*>
+      obj .:? "minimum" <*>
+      obj .:? "exclusiveMinimum" <*>
+      obj .:? "pattern" <*>
+      obj .:? "maxLength" <*>
+      obj .:? "minLength" <*>
+      obj .:? "items" <*>
+      obj .:? "maxItems" <*>
+      obj .:? "minItems" <*>
+      obj .:? "uniqueItems"
 
-instance Aeson.FromJSON ObjectConstraintProperties
+newtype ObjectConstraintProperties = ObjectConstraintProperties
+  { unObjectConstraintProperties :: HM.HashMap Text Schema
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-instance Aeson.FromJSON ArrayConstraintItems
+newtype ObjectConstraintRequired = ObjectConstraintRequired
+  { unObjectConstraintRequired :: [Text]
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype ObjectConstraintRequired =
-  ObjectConstraintRequired [Text]
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype ArrayConstraintItems = ArrayConstraintItems
+  { unArrayConstraintItems :: Schema
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype ArrayConstraintItems =
-  ArrayConstraintItems Schema
-  deriving (Generic, Eq, Show)
+newtype ArrayConstraintMaxItems = ArrayConstraintMaxItems
+  { unArrayConstraintMaxItems :: Int
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype ArrayConstraintMaxItems =
-  ArrayConstraintMaxItems Int
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype ArrayConstraintMinItems = ArrayConstraintMinItems
+  { unArrayConstraintMinItems :: Int
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
-newtype ArrayConstraintMinItems =
-  ArrayConstraintMinItems Int
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
-
-newtype ArrayConstraintUniqueItems =
-  ArrayConstraintUniqueItems Bool
-  deriving (Generic, Eq, Show, Aeson.FromJSON)
+newtype ArrayConstraintUniqueItems = ArrayConstraintUniqueItems
+  { unArrayConstraintUniqueItems :: Bool
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 data Schema = Schema
   { _schemaType             :: Maybe AnyConstraintType
@@ -139,142 +152,10 @@ data Schema = Schema
   , _schemaUniqueItems      :: Maybe ArrayConstraintUniqueItems
   } deriving (Generic, Eq, Show)
 
-nullSchema :: Schema
-nullSchema =
+emptySchema :: Schema
+emptySchema =
   Schema
-  { _schemaType = Just $ SingleType NullType
-  , _schemaEnum = Nothing
-  , _schemaConst = Nothing
-  , _schemaRequired = Nothing
-  , _schemaProperties = Nothing
-  , _schemaMultipleOf = Nothing
-  , _schemaMaximum = Nothing
-  , _schemaMinimum = Nothing
-  , _schemaExclusiveMaximum = Nothing
-  , _schemaExclusiveMinimum = Nothing
-  , _schemaPattern = Nothing
-  , _schemaMinLength = Nothing
-  , _schemaMaxLength = Nothing
-  , _schemaItems = Nothing
-  , _schemaMinItems = Nothing
-  , _schemaMaxItems = Nothing
-  , _schemaUniqueItems = Nothing
-  }
-
-booleanSchema :: Schema
-booleanSchema =
-  Schema
-  { _schemaType = Just $ SingleType BooleanType
-  , _schemaEnum = Nothing
-  , _schemaConst = Nothing
-  , _schemaRequired = Nothing
-  , _schemaProperties = Nothing
-  , _schemaMultipleOf = Nothing
-  , _schemaMaximum = Nothing
-  , _schemaMinimum = Nothing
-  , _schemaExclusiveMaximum = Nothing
-  , _schemaExclusiveMinimum = Nothing
-  , _schemaPattern = Nothing
-  , _schemaMinLength = Nothing
-  , _schemaMaxLength = Nothing
-  , _schemaItems = Nothing
-  , _schemaMinItems = Nothing
-  , _schemaMaxItems = Nothing
-  , _schemaUniqueItems = Nothing
-  }
-
-objectSchema :: Schema
-objectSchema =
-  Schema
-  { _schemaType = Just $ SingleType ObjectType
-  , _schemaEnum = Nothing
-  , _schemaConst = Nothing
-  , _schemaRequired = Nothing
-  , _schemaProperties = Nothing
-  , _schemaMultipleOf = Nothing
-  , _schemaMaximum = Nothing
-  , _schemaMinimum = Nothing
-  , _schemaExclusiveMaximum = Nothing
-  , _schemaExclusiveMinimum = Nothing
-  , _schemaPattern = Nothing
-  , _schemaMinLength = Nothing
-  , _schemaMaxLength = Nothing
-  , _schemaItems = Nothing
-  , _schemaMinItems = Nothing
-  , _schemaMaxItems = Nothing
-  , _schemaUniqueItems = Nothing
-  }
-
-arraySchema :: Schema
-arraySchema =
-  Schema
-  { _schemaType = Just $ SingleType ArrayType
-  , _schemaEnum = Nothing
-  , _schemaConst = Nothing
-  , _schemaRequired = Nothing
-  , _schemaProperties = Nothing
-  , _schemaMultipleOf = Nothing
-  , _schemaMaximum = Nothing
-  , _schemaMinimum = Nothing
-  , _schemaExclusiveMaximum = Nothing
-  , _schemaExclusiveMinimum = Nothing
-  , _schemaPattern = Nothing
-  , _schemaMinLength = Nothing
-  , _schemaMaxLength = Nothing
-  , _schemaItems = Nothing
-  , _schemaMinItems = Nothing
-  , _schemaMaxItems = Nothing
-  , _schemaUniqueItems = Nothing
-  }
-
-numberSchema :: Schema
-numberSchema =
-  Schema
-  { _schemaType = Just $ SingleType NumberType
-  , _schemaEnum = Nothing
-  , _schemaConst = Nothing
-  , _schemaRequired = Nothing
-  , _schemaProperties = Nothing
-  , _schemaMultipleOf = Nothing
-  , _schemaMaximum = Nothing
-  , _schemaMinimum = Nothing
-  , _schemaExclusiveMaximum = Nothing
-  , _schemaExclusiveMinimum = Nothing
-  , _schemaPattern = Nothing
-  , _schemaMinLength = Nothing
-  , _schemaMaxLength = Nothing
-  , _schemaItems = Nothing
-  , _schemaMinItems = Nothing
-  , _schemaMaxItems = Nothing
-  , _schemaUniqueItems = Nothing
-  }
-
-integerSchema :: Schema
-integerSchema =
-  Schema
-  { _schemaType = Just $ SingleType IntegerType
-  , _schemaEnum = Nothing
-  , _schemaConst = Nothing
-  , _schemaRequired = Nothing
-  , _schemaProperties = Nothing
-  , _schemaMultipleOf = Nothing
-  , _schemaMaximum = Nothing
-  , _schemaMinimum = Nothing
-  , _schemaExclusiveMaximum = Nothing
-  , _schemaExclusiveMinimum = Nothing
-  , _schemaPattern = Nothing
-  , _schemaMinLength = Nothing
-  , _schemaMaxLength = Nothing
-  , _schemaItems = Nothing
-  , _schemaMinItems = Nothing
-  , _schemaMaxItems = Nothing
-  , _schemaUniqueItems = Nothing
-  }
-
-stringSchema :: Schema
-stringSchema =
-  Schema
-  { _schemaType = Just $ SingleType StringType
+  { _schemaType = Nothing
   , _schemaEnum = Nothing
   , _schemaConst = Nothing
   , _schemaRequired = Nothing
@@ -294,23 +175,6 @@ stringSchema =
   }
 
 makeLenses ''Schema
-
-instance Aeson.FromJSON Schema where
-  parseJSON =
-    withObject "Schema" $ \obj ->
-      Schema <$> obj .:? "type" <*> obj .:? "enum" <*> obj .:? "const" <*> obj .:? "properties" <*> obj .:? "required" <*>
-      obj .:? "multipleOf" <*>
-      obj .:? "maximum" <*>
-      obj .:? "exclusiveMaximum" <*>
-      obj .:? "minimum" <*>
-      obj .:? "exclusiveMinimum" <*>
-      obj .:? "pattern" <*>
-      obj .:? "maxLength" <*>
-      obj .:? "minLength" <*>
-      obj .:? "items" <*>
-      obj .:? "maxItems" <*>
-      obj .:? "minItems" <*>
-      obj .:? "uniqueItems"
 
 read :: FilePath -> IO (Either Text Schema)
 read fp = do
