@@ -6,25 +6,17 @@ module Hedgehog.Gen.JSON.Constrained.Internal.InternalSpec
   ( tests
   ) where
 
-import           Control.Lens                           (over, set)
-import qualified Data.Aeson                             as Aeson
-import           Data.Fixed                             (mod')
-import qualified Data.HashMap.Strict                    as H
 import qualified Data.HashSet                           as HashSet
 import qualified Data.Scientific                        as Scientific
 import qualified Data.Text                              as Text
 import           Hedgehog
 import qualified Hedgehog.Gen                           as Gen
-import           Hedgehog.Gen.JSON
-import           Hedgehog.Gen.JSON
 import           Hedgehog.Gen.JSON.Constrained.Internal
 import           Hedgehog.Gen.JSON.JSONSchema
 import qualified Hedgehog.Range                         as Range
-import qualified Prelude                                as P
 import           Protolude
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
-import           Text.Regex.Posix
 import           Text.Regex.Posix
 
 prop_genBoundedInteger :: Property

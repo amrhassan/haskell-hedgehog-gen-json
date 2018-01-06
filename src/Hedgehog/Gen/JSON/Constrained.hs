@@ -8,10 +8,8 @@ module Hedgehog.Gen.JSON.Constrained
 
 import           Control.Lens
 import qualified Data.Aeson                             as Aeson
-import qualified Data.HashMap.Strict                    as HM
-import qualified Data.HashSet                           as HashSet
+import qualified Data.HashMap.Strict                    as HashMap
 import qualified Data.Scientific                        as Scientific
-import qualified Data.Text                              as Text
 import qualified Data.Vector                            as Vector
 import           Hedgehog
 import qualified Hedgehog.Gen                           as Gen
@@ -21,7 +19,6 @@ import           Hedgehog.Gen.JSON.Ranges
 import qualified Hedgehog.Gen.JSON.Unconstrained        as Unconstrained
 import qualified Hedgehog.Range                         as Range
 import           Protolude
-import qualified Regex.Genex                            as Genex
 
 genValue :: Ranges -> Schema -> Gen Aeson.Value
 genValue ranges schema
@@ -89,7 +86,7 @@ genStringValue (StringRange sr) schema =
     Nothing -> Aeson.String <$> genBoundedString (schema ^. schemaMinLength) (schema ^. schemaMaxLength) sr
 
 genObjectValue :: Ranges -> Schema -> Gen Aeson.Value
-genObjectValue ranges schema = (Aeson.Object . HM.fromList . join) <$> generatedFields
+genObjectValue ranges schema = (Aeson.Object . HashMap.fromList . join) <$> generatedFields
   where
     generatedFields = traverse (\(n, gen) -> (\m -> (\v -> (n, v)) <$> (maybeToList m)) <$> gen) generatedFieldsMaybes
     generatedFieldsMaybes =
@@ -99,9 +96,9 @@ genObjectValue ranges schema = (Aeson.Object . HM.fromList . join) <$> generated
               then fmap Just
               else Gen.maybe)
              (Gen.small $ genValue ranges s))) <$>
-      HM.toList properties
-    ObjectConstraintRequired required = fromMaybe (ObjectConstraintRequired []) $ schema ^. schemaRequired
-    ObjectConstraintProperties properties = fromMaybe (ObjectConstraintProperties HM.empty) $ schema ^. schemaProperties
+      HashMap.toList properties
+    required = maybe [] unObjectConstraintRequired (schema ^. schemaRequired)
+    properties = maybe HashMap.empty unObjectConstraintProperties (schema ^. schemaProperties)
 
 genArrayValue :: Ranges -> Schema -> Gen Aeson.Value
 genArrayValue ranges schema =

@@ -11,7 +11,6 @@ module Hedgehog.Gen.JSON.Constrained.Internal
   , filterAllMaybe
   ) where
 
-import           Control.Lens
 import qualified Data.HashSet                 as HashSet
 import           Data.Scientific              (Scientific)
 import qualified Data.Scientific              as Scientific
@@ -19,7 +18,6 @@ import qualified Data.Text                    as Text
 import           Hedgehog
 import qualified Hedgehog.Gen                 as Gen
 import           Hedgehog.Gen.JSON.JSONSchema
-import           Hedgehog.Gen.JSON.Ranges
 import qualified Hedgehog.Range               as Range
 import           Protolude
 import qualified Regex.Genex                  as Genex

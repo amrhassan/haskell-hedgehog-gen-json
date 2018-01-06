@@ -16,7 +16,6 @@ import qualified Data.Text                    as Text
 import           Hedgehog
 import qualified Hedgehog.Gen                 as Gen
 import           Hedgehog.Gen.JSON
-import           Hedgehog.Gen.JSON
 import           Hedgehog.Gen.JSON.JSONSchema
 import qualified Hedgehog.Range               as Range
 import qualified Prelude                      as P
@@ -59,7 +58,7 @@ prop_constrainedNumber =
            set schemaMaximum (NumberConstraintMaximum <$> vmax) .
            set schemaExclusiveMinimum (NumberConstraintExclusiveMinimum <$> vminEx) .
            set schemaExclusiveMaximum (NumberConstraintExclusiveMaximum <$> vmaxEx))
-            numberSchema
+            (singleTypeSchema NumberType)
     (Aeson.Number v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $ maybe True (v >=) vmin
     assert $ maybe True (v <=) vmax
@@ -80,7 +79,7 @@ prop_constrainedInteger =
            set schemaExclusiveMinimum (NumberConstraintExclusiveMinimum <$> vminEx) .
            set schemaExclusiveMaximum (NumberConstraintExclusiveMaximum <$> vmaxEx) .
            set schemaMultipleOf (NumberConstraintMultipleOf <$> multipleOf))
-            integerSchema
+            (singleTypeSchema IntegerType)
     (Aeson.Number v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $ maybe True (v >=) vmin
     assert $ maybe True (v <=) vmax
@@ -99,7 +98,7 @@ prop_constrainedString =
           (set schemaPattern (StringConstraintPattern <$> regexp) .
            set schemaMinLength (StringConstraintMinLength <$> minLength) .
            set schemaMaxLength (StringConstraintMaxLength <$> maxLength))
-            stringSchema
+            (singleTypeSchema StringType)
     (Aeson.String v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $
       case regexp of
@@ -118,7 +117,7 @@ prop_constrainedObject =
     let schema =
           (set schemaProperties (Just $ ObjectConstraintProperties (nonRequiredFields `H.union` requiredFields)) .
            set schemaRequired (Just $ ObjectConstraintRequired $ H.keys requiredFields))
-            objectSchema
+            (singleTypeSchema ObjectType)
     (Aeson.Object v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $ all (`elem` (H.keys v)) (H.keys requiredFields)
 
@@ -134,7 +133,7 @@ prop_constrainedArray =
            set schemaMaxItems (ArrayConstraintMaxItems <$> maxItems) .
            set schemaUniqueItems (ArrayConstraintUniqueItems <$> uniqueItems) .
            set schemaItems (Just $ ArrayConstraintItems itemSchema))
-            arraySchema
+            (singleTypeSchema ArrayType)
     (Aeson.Array v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $ maybe True (length v >=) minItems
     assert $ maybe True (length v <=) maxItems
@@ -157,12 +156,17 @@ prop_decodesSchema = property $ decoded === Right expected
       (set schemaRequired (Just (ObjectConstraintRequired ["user_id"])) .
        set
          schemaProperties
-         ((Just . ObjectConstraintProperties) (H.fromList [("user_id", integerSchema), ("user_domain", stringSchema)])))
-        objectSchema
+         ((Just . ObjectConstraintProperties)
+            (H.fromList [("user_id", singleTypeSchema IntegerType), ("user_domain", singleTypeSchema StringType)])))
+        (singleTypeSchema ObjectType)
 
 genSchema :: Gen Schema
-genSchema =
-  Gen.element [nullSchema, booleanSchema, objectSchema, arraySchema, numberSchema, integerSchema, stringSchema]
+genSchema = do
+  t <- Gen.enumBounded
+  pure $ singleTypeSchema t
+
+singleTypeSchema :: PrimitiveType -> Schema
+singleTypeSchema t = set schemaType (Just $ SingleType t) emptySchema
 
 isUnique :: (Hashable a, Eq a, Foldable t) => t a -> Bool
 isUnique xs = (toList . HS.fromList . toList) xs == toList xs
