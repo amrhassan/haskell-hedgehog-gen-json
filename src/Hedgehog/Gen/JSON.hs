@@ -30,6 +30,7 @@ import qualified Hedgehog.Gen.JSON.Unconstrained as Unconstrained
 import qualified Hedgehog.Range                  as Range
 import           Protolude
 
+-- | Reads a JSON Schema from a filepath
 readSchema :: (MonadIO m, MonadThrow m) => FilePath -> m Schema
 readSchema fp = do
   bytes <- liftIO $ BS.readFile fp
@@ -37,18 +38,23 @@ readSchema fp = do
     Left err     -> throwM $ DecodingSchemaException $ Text.pack err
     Right schema -> pure schema
 
+-- | Generator for arbitrary unconstrained JSON values encoded as UTF-8
 genJSON :: Ranges -> Gen ByteString
 genJSON ranges = (LBS.toStrict . Aeson.encode) <$> genJSONValue ranges
 
+-- | Generator for arbitrary unconstrained JSON values
 genJSONValue :: Ranges -> Gen Aeson.Value
 genJSONValue = Unconstrained.genValue
 
+-- | Generator for arbitrary JSON values constrained by the given JSON Schema and encoded as UTF-8
 genConstrainedJSON :: Ranges -> Schema -> Gen ByteString
 genConstrainedJSON ranges schema = (LBS.toStrict . Aeson.encode) <$> genConstrainedJSONValue ranges schema
 
+-- | Generator for arbitrary JSON values constrained by the given JSON Schema
 genConstrainedJSONValue :: Ranges -> Schema -> Gen Aeson.Value
 genConstrainedJSONValue = Constrained.genValue
 
+-- | Sensible ranges for arbitrary JSON values if you're too lazy to define some
 sensibleRanges :: Ranges
 sensibleRanges =
   Ranges
