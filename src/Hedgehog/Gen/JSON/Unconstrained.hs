@@ -7,6 +7,7 @@ import qualified Data.Vector              as Vector
 import           Hedgehog
 import qualified Hedgehog.Gen             as Gen
 import           Hedgehog.Gen.JSON.Ranges
+import           Protolude
 
 genNull :: Gen A.Value
 genNull = pure A.Null
@@ -36,12 +37,4 @@ genObj ranges = A.object <$> Gen.list ar ((,) <$> Gen.text sr Gen.unicode <*> ge
     (ArrayRange ar) = ranges ^. arrayRange
 
 genValue :: Ranges -> Gen A.Value
-genValue ranges =
-  Gen.choice
-    [ genNull
-    , genStringValue (ranges ^. stringRange)
-    , genBool
-    , genNumber (ranges ^. numberRange)
-    , genArray ranges
-    , genObj ranges
-    ]
+genValue ranges = Gen.choice [genNull, genStringValue (ranges ^. stringRange), genBool, genNumber (ranges ^. numberRange), genArray ranges, genObj ranges]

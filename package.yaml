@@ -12,20 +12,24 @@ extra-source-files:
 - README.md
 ghc-options: -Wall
 
+default-extensions:
+ - OverloadedStrings
+ - NoImplicitPrelude
+
 dependencies:
-  - base >= 4.7 && < 5
-  - hedgehog
   - aeson
-  - protolude
+  - base >= 4.7 && < 5
   - bytestring
+  - containers
+  - exceptions
+  - hedgehog
   - lens
-  - vector
+  - protolude
+  - regex-genex
   - scientific
   - text
-  - containers
   - unordered-containers
-  - regex-genex
-  - exceptions
+  - vector
 
 library:
   source-dirs: src
@@ -41,4 +45,4 @@ tests:
     dependencies:
       - tasty
       - tasty-hedgehog
-      - regex-posix
+      - regex-pcre
