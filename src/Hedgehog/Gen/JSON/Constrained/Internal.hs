@@ -6,6 +6,7 @@ module Hedgehog.Gen.JSON.Constrained.Internal
   , genBoundedReal
   , genBoundedString
   , genStringFromRegexp
+  , genZonedTime
   , genUniqueItems
   , filterAll
   , filterAllMaybe
@@ -15,6 +16,11 @@ import qualified Data.HashSet                 as HashSet
 import           Data.Scientific              (Scientific)
 import qualified Data.Scientific              as Scientific
 import qualified Data.Text                    as Text
+import           Data.Time.Clock
+import           Data.Time.Clock.POSIX
+import           Data.Time.LocalTime
+import           Data.Time.Zones
+import           Data.Time.Zones.All
 import           Hedgehog
 import qualified Hedgehog.Gen                 as Gen
 import           Hedgehog.Gen.JSON.JSONSchema
@@ -31,8 +37,7 @@ genBoundedInteger ::
   -> Maybe NumberConstraintMultipleOf
   -> Range Integer
   -> Gen Integer
-genBoundedInteger cminEx cmin cmaxEx cmax cmult range =
-  Gen.sized $ \sz -> filterAllMaybe filters $ Gen.integral (finalRange sz)
+genBoundedInteger cminEx cmin cmaxEx cmax cmult range = Gen.sized $ \sz -> filterAllMaybe filters $ Gen.integral (finalRange sz)
   where
     filters = [minExFilter, maxExFilter, minFilter, maxFilter, multipleOfFilter]
     minExFilter = ((\b -> (> b)) . truncateScientific . unNumberConstraintExclusiveMinimum) <$> cminEx
@@ -45,16 +50,12 @@ genBoundedInteger cminEx cmin cmaxEx cmax cmult range =
       fromMaybe
         (Range.lowerBound sz range)
         ((maximumMay . catMaybes)
-           [ (truncateScientific . unNumberConstraintMinimum) <$> cmin
-           , (truncateScientific . unNumberConstraintExclusiveMinimum) <$> cminEx
-           ])
+           [(truncateScientific . unNumberConstraintMinimum) <$> cmin, (truncateScientific . unNumberConstraintExclusiveMinimum) <$> cminEx])
     maxB sz =
       fromMaybe
         (Range.lowerBound sz range)
         ((minimumMay . catMaybes)
-           [ (truncateScientific . unNumberConstraintMaximum) <$> cmax
-           , (truncateScientific . unNumberConstraintExclusiveMaximum) <$> cmaxEx
-           ])
+           [(truncateScientific . unNumberConstraintMaximum) <$> cmax, (truncateScientific . unNumberConstraintExclusiveMaximum) <$> cmaxEx])
 
 -- | Generates a Double bounded by the given constraints or by the given range.
 genBoundedReal ::
@@ -76,28 +77,21 @@ genBoundedReal cminEx cmin cmaxEx cmax range = Gen.sized $ \sz -> filterAllMaybe
       fromMaybe
         (Range.lowerBound sz range)
         ((maximumMay . catMaybes)
-           [ (Scientific.toRealFloat . unNumberConstraintMinimum) <$> cmin
-           , (Scientific.toRealFloat . unNumberConstraintExclusiveMinimum) <$> cminEx
-           ])
+           [(Scientific.toRealFloat . unNumberConstraintMinimum) <$> cmin, (Scientific.toRealFloat . unNumberConstraintExclusiveMinimum) <$> cminEx])
     maxB sz =
       fromMaybe
         (Range.lowerBound sz range)
         ((minimumMay . catMaybes)
-           [ (Scientific.toRealFloat . unNumberConstraintMaximum) <$> cmax
-           , (Scientific.toRealFloat . unNumberConstraintExclusiveMaximum) <$> cmaxEx
-           ])
+           [(Scientific.toRealFloat . unNumberConstraintMaximum) <$> cmax, (Scientific.toRealFloat . unNumberConstraintExclusiveMaximum) <$> cmaxEx])
 
 -- | Generates a Text bounded in size by the given constraints or by the given range.
 genBoundedString :: Maybe StringConstraintMinLength -> Maybe StringConstraintMaxLength -> Range Int -> Gen Text
-genBoundedString minLengthC maxLengthC range =
-  Gen.sized $ \size -> filterAllMaybe filters $ Gen.text (Range.linear (minB size) (maxB size)) Gen.unicode
+genBoundedString minLengthC maxLengthC range = Gen.sized $ \size -> filterAllMaybe filters $ Gen.text (Range.linear (minB size) (maxB size)) Gen.unicode
   where
     minB sz = maybe (Range.lowerBound sz range) unStringConstraintMinLength minLengthC
     maxB sz = maybe (Range.upperBound sz range) unStringConstraintMaxLength maxLengthC
     filters =
-      [ ((\b t -> Text.length t >= b) . unStringConstraintMinLength) <$> minLengthC
-      , ((\b t -> Text.length t <= b) . unStringConstraintMaxLength) <$> maxLengthC
-      ]
+      [((\b t -> Text.length t >= b) . unStringConstraintMinLength) <$> minLengthC, ((\b t -> Text.length t <= b) . unStringConstraintMaxLength) <$> maxLengthC]
 
 -- | Generates a Text from a given Regular Expression
 genStringFromRegexp :: Text -> Gen Text
@@ -135,3 +129,13 @@ truncateScientific x = truncate real
 
 makeListUnique :: (Eq a, Hashable a) => [a] -> [a]
 makeListUnique = toList . HashSet.fromList
+
+genZonedTime :: Range POSIXTime -> Gen ZonedTime
+genZonedTime r = do
+  tz <- tzByLabel <$> Gen.enumBounded
+  t <- genUTCTime r
+  let timezone = timeZoneForUTCTime tz t
+  pure $ utcToZonedTime timezone t
+
+genUTCTime :: Range POSIXTime -> Gen UTCTime
+genUTCTime r = posixSecondsToUTCTime <$> Gen.realFrac_ r
