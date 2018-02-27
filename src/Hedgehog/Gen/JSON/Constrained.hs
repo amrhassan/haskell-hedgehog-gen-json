@@ -10,6 +10,7 @@ import           Control.Lens
 import qualified Data.Aeson                             as Aeson
 import qualified Data.HashMap.Strict                    as HashMap
 import qualified Data.Scientific                        as Scientific
+import           Data.Time.RFC3339
 import qualified Data.Vector                            as Vector
 import           Hedgehog
 import qualified Hedgehog.Gen                           as Gen
@@ -78,6 +79,8 @@ genStringValue (StringRange sr) schema =
         Nothing                         -> genUnformatted
   where
     genWithFormat "uuid" = Aeson.String <$> genStringFromRegexp "[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}"
+    genWithFormat "date-time" = (Aeson.String . formatTimeRFC3339) <$> genZonedTime (Range.linearFrac 0 999999999999999999)
+    genWithFormat "RFC 3339 date-time" = genWithFormat "date-time"
     genWithFormat _ = genUnformatted
     genUnformatted = Aeson.String <$> genBoundedString (schema ^. schemaMinLength) (schema ^. schemaMaxLength) sr
 

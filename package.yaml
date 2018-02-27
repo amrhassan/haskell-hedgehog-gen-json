@@ -10,7 +10,7 @@ copyright:           2017 Amr Hassan
 category:            Test
 extra-source-files:
 - README.md
-ghc-options: -Wall
+ghc-options: -Wall -fhide-source-paths
 
 default-extensions:
  - OverloadedStrings
@@ -26,8 +26,11 @@ dependencies:
   - lens
   - protolude
   - regex-genex
+  - timerep
   - scientific
   - text
+  - time
+  - tz
   - unordered-containers
   - vector
 

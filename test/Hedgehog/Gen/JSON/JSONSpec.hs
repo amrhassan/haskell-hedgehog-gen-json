@@ -17,7 +17,6 @@ import Hedgehog.Gen.JSON
 import Hedgehog.Gen.JSON.JSONSchema
 import qualified Hedgehog.Range as Range
 import qualified Prelude as P
-import qualified Prelude as Prelude
 import Protolude
 import Test.Tasty
 import Test.Tasty.Hedgehog
@@ -91,11 +90,11 @@ prop_constrainedString =
     minLength <- forAll $ Gen.maybe $ Gen.integral (Range.linear 0 50)
     maxLength <- forAll $ Gen.maybe $ Gen.integral (Range.linear 50 100)
     regexp <- forAll $ Gen.maybe $ Gen.constant "[a-zA-Z0-9]{3,9}" -- Not very arbitrary, I know.
-    format <- forAll $ Gen.maybe $ Gen.element ["uuid"]
+    format <- forAll $ Gen.maybe $ Gen.element ["uuid", "date-time", "RFC 3339 date-time"]
     let schema =
           (set schemaPattern (StringConstraintPattern <$> regexp) .
            set schemaMinLength (StringConstraintMinLength <$> minLength) .
-           set schemaMaxLength (StringConstraintMaxLength <$> maxLength) . set schemaFormat (StringConstraintFormat <$> format))
+           set schemaMaxLength (StringConstraintMaxLength <$> maxLength) . set schemaFormat (StringConstraintFormat <$> (traceShow format format)))
             (singleTypeSchema StringType)
     (Aeson.String v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     case regexp of
@@ -167,11 +166,17 @@ isUnique xs = (toList . HS.fromList . toList) xs == toList xs
 regexMatches :: (MonadTest m, HasCallStack) => Text -> Text -> m ()
 regexMatches regex t = do
   footnoteShow (t <> " does not match the regexp " <> regex)
-  assert $ (toS t :: Prelude.String) =~ (toS regex :: Prelude.String)
+  assert $ (toS t :: P.String) =~ (toS regex :: P.String)
 
 hasFormat :: (MonadTest m) => StringConstraintFormat -> Text -> m ()
 hasFormat (StringConstraintFormat "uuid") t =
   footnoteShow (t <> " does hot have the format of uuid") >> regexMatches "[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}" t
+hasFormat (StringConstraintFormat "date-time") t =
+  footnoteShow (t <> " does hot have the format of date-time") >>
+  regexMatches
+    "([0-9]+)-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)(\\.[0-9]+)?(([Zz])|([\\+|\\-]([01][0-9]|2[0-3]):[0-5][0-9]))"
+    t
+hasFormat (StringConstraintFormat "RFC 3339 date-time") t = hasFormat (StringConstraintFormat "date-time") t
 hasFormat _ _ = footnote "Format unsupported" >> failure
 
 tests :: TestTree
