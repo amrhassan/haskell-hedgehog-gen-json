@@ -1,28 +1,27 @@
-{-# LANGUAGE NoImplicitPrelude   #-}
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Hedgehog.Gen.JSON.JSONSpec
   ( tests
   ) where
 
-import           Control.Lens                 (over, set)
-import qualified Data.Aeson                   as Aeson
-import           Data.Fixed                   (mod')
-import qualified Data.HashMap.Strict          as H
-import qualified Data.HashSet                 as HS
-import qualified Data.Scientific              as Scientific
-import qualified Data.Text                    as Text
-import           Hedgehog
-import qualified Hedgehog.Gen                 as Gen
-import           Hedgehog.Gen.JSON
-import           Hedgehog.Gen.JSON.JSONSchema
-import qualified Hedgehog.Range               as Range
-import qualified Prelude                      as P
-import           Protolude
-import           Test.Tasty
-import           Test.Tasty.Hedgehog
-import           Text.Regex.Posix
+import Control.Lens (over, set)
+import qualified Data.Aeson as Aeson
+import Data.Fixed (mod')
+import qualified Data.HashMap.Strict as H
+import qualified Data.HashSet as HS
+import qualified Data.Scientific as Scientific
+import qualified Data.Text as Text
+import Hedgehog
+import qualified Hedgehog.Gen as Gen
+import Hedgehog.Gen.JSON
+import Hedgehog.Gen.JSON.JSONSchema
+import qualified Hedgehog.Range as Range
+import qualified Prelude as P
+import qualified Prelude as Prelude
+import Protolude
+import Test.Tasty
+import Test.Tasty.Hedgehog
+import Text.Regex.PCRE
 
 prop_generatedUnconstrainedJSON :: Property
 prop_generatedUnconstrainedJSON =
@@ -56,8 +55,7 @@ prop_constrainedNumber =
     let schema =
           (set schemaMinimum (NumberConstraintMinimum <$> vmin) .
            set schemaMaximum (NumberConstraintMaximum <$> vmax) .
-           set schemaExclusiveMinimum (NumberConstraintExclusiveMinimum <$> vminEx) .
-           set schemaExclusiveMaximum (NumberConstraintExclusiveMaximum <$> vmaxEx))
+           set schemaExclusiveMinimum (NumberConstraintExclusiveMinimum <$> vminEx) . set schemaExclusiveMaximum (NumberConstraintExclusiveMaximum <$> vmaxEx))
             (singleTypeSchema NumberType)
     (Aeson.Number v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $ maybe True (v >=) vmin
@@ -77,8 +75,7 @@ prop_constrainedInteger =
           (set schemaMinimum (NumberConstraintMinimum <$> vmin) .
            set schemaMaximum (NumberConstraintMaximum <$> vmax) .
            set schemaExclusiveMinimum (NumberConstraintExclusiveMinimum <$> vminEx) .
-           set schemaExclusiveMaximum (NumberConstraintExclusiveMaximum <$> vmaxEx) .
-           set schemaMultipleOf (NumberConstraintMultipleOf <$> multipleOf))
+           set schemaExclusiveMaximum (NumberConstraintExclusiveMaximum <$> vmaxEx) . set schemaMultipleOf (NumberConstraintMultipleOf <$> multipleOf))
             (singleTypeSchema IntegerType)
     (Aeson.Number v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $ maybe True (v >=) vmin
@@ -94,26 +91,25 @@ prop_constrainedString =
     minLength <- forAll $ Gen.maybe $ Gen.integral (Range.linear 0 50)
     maxLength <- forAll $ Gen.maybe $ Gen.integral (Range.linear 50 100)
     regexp <- forAll $ Gen.maybe $ Gen.constant "[a-zA-Z0-9]{3,9}" -- Not very arbitrary, I know.
+    format <- forAll $ Gen.maybe $ Gen.element ["uuid"]
     let schema =
           (set schemaPattern (StringConstraintPattern <$> regexp) .
            set schemaMinLength (StringConstraintMinLength <$> minLength) .
-           set schemaMaxLength (StringConstraintMaxLength <$> maxLength))
+           set schemaMaxLength (StringConstraintMaxLength <$> maxLength) . set schemaFormat (StringConstraintFormat <$> format))
             (singleTypeSchema StringType)
     (Aeson.String v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
-    assert $
-      case regexp of
-        Just p -> Text.unpack v =~ Text.unpack p
-        Nothing -> Text.length v >= fromMaybe 0 minLength && Text.length v <= fromMaybe 1000 maxLength
+    case regexp of
+      Just p -> regexMatches p v
+      Nothing ->
+        case format of
+          (Just f) -> hasFormat (StringConstraintFormat f) v
+          Nothing -> assert $ Text.length v >= fromMaybe 0 minLength && Text.length v <= fromMaybe 1000 maxLength
 
 prop_constrainedObject :: Property
 prop_constrainedObject =
   property $ do
-    nonRequiredFields <-
-      forAll $
-      H.fromList <$> (Gen.list (Range.linear 1 10) $ ((,) <$> (Gen.text (Range.linear 1 10) Gen.unicode) <*> genSchema))
-    requiredFields <-
-      forAll $
-      H.fromList <$> (Gen.list (Range.linear 1 10) $ ((,) <$> (Gen.text (Range.linear 1 10) Gen.unicode) <*> genSchema))
+    nonRequiredFields <- forAll $ H.fromList <$> (Gen.list (Range.linear 1 10) $ ((,) <$> (Gen.text (Range.linear 1 10) Gen.unicode) <*> genSchema))
+    requiredFields <- forAll $ H.fromList <$> (Gen.list (Range.linear 1 10) $ ((,) <$> (Gen.text (Range.linear 1 10) Gen.unicode) <*> genSchema))
     let schema =
           (set schemaProperties (Just $ ObjectConstraintProperties (nonRequiredFields `H.union` requiredFields)) .
            set schemaRequired (Just $ ObjectConstraintRequired $ H.keys requiredFields))
@@ -131,8 +127,7 @@ prop_constrainedArray =
     let schema =
           (set schemaMinItems (ArrayConstraintMinItems <$> minItems) .
            set schemaMaxItems (ArrayConstraintMaxItems <$> maxItems) .
-           set schemaUniqueItems (ArrayConstraintUniqueItems <$> uniqueItems) .
-           set schemaItems (Just $ ArrayConstraintItems itemSchema))
+           set schemaUniqueItems (ArrayConstraintUniqueItems <$> uniqueItems) . set schemaItems (Just $ ArrayConstraintItems itemSchema))
             (singleTypeSchema ArrayType)
     (Aeson.Array v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     assert $ maybe True (length v >=) minItems
@@ -149,15 +144,13 @@ prop_constrainedArray =
 prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
   where
-    schemaJson =
-      "{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"integer\"},\"user_domain\":{\"type\":\"string\"}},\"required\":[\"user_id\"]}"
+    schemaJson = "{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"integer\"},\"user_domain\":{\"type\":\"string\"}},\"required\":[\"user_id\"]}"
     decoded :: Either P.String Schema = Aeson.eitherDecode schemaJson
     expected =
       (set schemaRequired (Just (ObjectConstraintRequired ["user_id"])) .
        set
          schemaProperties
-         ((Just . ObjectConstraintProperties)
-            (H.fromList [("user_id", singleTypeSchema IntegerType), ("user_domain", singleTypeSchema StringType)])))
+         ((Just . ObjectConstraintProperties) (H.fromList [("user_id", singleTypeSchema IntegerType), ("user_domain", singleTypeSchema StringType)])))
         (singleTypeSchema ObjectType)
 
 genSchema :: Gen Schema
@@ -170,6 +163,16 @@ singleTypeSchema t = set schemaType (Just $ SingleType t) emptySchema
 
 isUnique :: (Hashable a, Eq a, Foldable t) => t a -> Bool
 isUnique xs = (toList . HS.fromList . toList) xs == toList xs
+
+regexMatches :: (MonadTest m, HasCallStack) => Text -> Text -> m ()
+regexMatches regex t = do
+  footnoteShow (t <> " does not match the regexp " <> regex)
+  assert $ (toS t :: Prelude.String) =~ (toS regex :: Prelude.String)
+
+hasFormat :: (MonadTest m) => StringConstraintFormat -> Text -> m ()
+hasFormat (StringConstraintFormat "uuid") t =
+  footnoteShow (t <> " does hot have the format of uuid") >> regexMatches "[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}" t
+hasFormat _ _ = footnote "Format unsupported" >> failure
 
 tests :: TestTree
 tests =

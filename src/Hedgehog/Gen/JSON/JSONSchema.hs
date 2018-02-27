@@ -1,7 +1,5 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE StrictData                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
@@ -83,6 +81,10 @@ newtype StringConstraintPattern = StringConstraintPattern
   { unStringConstraintPattern :: Text
   } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
+newtype StringConstraintFormat = StringConstraintFormat
+  { unStringConstraintFormat :: Text
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
+
 newtype StringConstraintMaxLength = StringConstraintMaxLength
   { unStringConstraintMaxLength :: Int
   } deriving (Generic, Eq, Show, Aeson.FromJSON)
@@ -94,13 +96,13 @@ newtype StringConstraintMinLength = StringConstraintMinLength
 instance Aeson.FromJSON Schema where
   parseJSON =
     withObject "Schema" $ \obj ->
-      Schema <$> obj .:? "type" <*> obj .:? "enum" <*> obj .:? "const" <*> obj .:? "properties" <*> obj .:? "required" <*>
-      obj .:? "multipleOf" <*>
+      Schema <$> obj .:? "type" <*> obj .:? "enum" <*> obj .:? "const" <*> obj .:? "properties" <*> obj .:? "required" <*> obj .:? "multipleOf" <*>
       obj .:? "maximum" <*>
       obj .:? "exclusiveMaximum" <*>
       obj .:? "minimum" <*>
       obj .:? "exclusiveMinimum" <*>
       obj .:? "pattern" <*>
+      obj .:? "format" <*>
       obj .:? "maxLength" <*>
       obj .:? "minLength" <*>
       obj .:? "items" <*>
@@ -144,6 +146,7 @@ data Schema = Schema
   , _schemaMinimum          :: Maybe NumberConstraintMinimum
   , _schemaExclusiveMinimum :: Maybe NumberConstraintExclusiveMinimum
   , _schemaPattern          :: Maybe StringConstraintPattern
+  , _schemaFormat           :: Maybe StringConstraintFormat
   , _schemaMaxLength        :: Maybe StringConstraintMaxLength
   , _schemaMinLength        :: Maybe StringConstraintMinLength
   , _schemaItems            :: Maybe ArrayConstraintItems
@@ -155,24 +158,25 @@ data Schema = Schema
 emptySchema :: Schema
 emptySchema =
   Schema
-  { _schemaType = Nothing
-  , _schemaEnum = Nothing
-  , _schemaConst = Nothing
-  , _schemaRequired = Nothing
-  , _schemaProperties = Nothing
-  , _schemaMultipleOf = Nothing
-  , _schemaMaximum = Nothing
-  , _schemaMinimum = Nothing
-  , _schemaExclusiveMaximum = Nothing
-  , _schemaExclusiveMinimum = Nothing
-  , _schemaPattern = Nothing
-  , _schemaMinLength = Nothing
-  , _schemaMaxLength = Nothing
-  , _schemaItems = Nothing
-  , _schemaMinItems = Nothing
-  , _schemaMaxItems = Nothing
-  , _schemaUniqueItems = Nothing
-  }
+    { _schemaType = Nothing
+    , _schemaEnum = Nothing
+    , _schemaConst = Nothing
+    , _schemaRequired = Nothing
+    , _schemaProperties = Nothing
+    , _schemaMultipleOf = Nothing
+    , _schemaMaximum = Nothing
+    , _schemaMinimum = Nothing
+    , _schemaExclusiveMaximum = Nothing
+    , _schemaExclusiveMinimum = Nothing
+    , _schemaPattern = Nothing
+    , _schemaFormat = Nothing
+    , _schemaMinLength = Nothing
+    , _schemaMaxLength = Nothing
+    , _schemaItems = Nothing
+    , _schemaMinItems = Nothing
+    , _schemaMaxItems = Nothing
+    , _schemaUniqueItems = Nothing
+    }
 
 makeLenses ''Schema
 

@@ -1,5 +1,3 @@
-{-# LANGUAGE NoImplicitPrelude   #-}
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Hedgehog.Gen.JSON.Constrained.Internal.InternalSpec
@@ -17,7 +15,7 @@ import qualified Hedgehog.Range                         as Range
 import           Protolude
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
-import           Text.Regex.Posix
+import           Text.Regex.PCRE
 
 prop_genBoundedInteger :: Property
 prop_genBoundedInteger =
@@ -84,12 +82,13 @@ prop_genStringFromRegexp =
     assert $ Text.unpack v =~ Text.unpack regexp
 
 prop_genUniqueItems :: Property
-prop_genUniqueItems = property $ do
-  let gen = Gen.int (Range.linear 0 1000)
-  generated <- forAll $ genUniqueItems (Range.linear 10 50) gen
-  assert $ length generated <= 50
-  assert $ length generated >= 10
-  (length . HashSet.fromList) generated === length generated
+prop_genUniqueItems =
+  property $ do
+    let gen = Gen.int (Range.linear 0 1000)
+    generated <- forAll $ genUniqueItems (Range.linear 10 50) gen
+    assert $ length generated <= 50
+    assert $ length generated >= 10
+    (length . HashSet.fromList) generated === length generated
 
 tests :: TestTree
 tests =

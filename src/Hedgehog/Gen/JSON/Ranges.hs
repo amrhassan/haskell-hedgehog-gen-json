@@ -4,6 +4,7 @@ module Hedgehog.Gen.JSON.Ranges where
 
 import           Control.Lens
 import           Hedgehog
+import           Protolude
 
 newtype NumberRange = NumberRange
   { unNumberRange :: Range Double

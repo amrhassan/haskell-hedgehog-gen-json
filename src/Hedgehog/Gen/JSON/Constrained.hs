@@ -35,15 +35,9 @@ genValue ranges schema
       Nothing -> Unconstrained.genValue ranges
       Just (MultipleTypes (t :| [])) -> genValue ranges (set schemaType (Just $ SingleType t) schema)
       Just (MultipleTypes (t :| [t'])) ->
-        Gen.choice
-          [ genValue ranges (set schemaType (Just $ SingleType t) schema)
-          , genValue ranges (set schemaType (Just $ SingleType t') schema)
-          ]
+        Gen.choice [genValue ranges (set schemaType (Just $ SingleType t) schema), genValue ranges (set schemaType (Just $ SingleType t') schema)]
       Just (MultipleTypes (t :| (t':ts))) ->
-        Gen.choice
-          [ genValue ranges (set schemaType (Just $ SingleType t) schema)
-          , genValue ranges (set schemaType (Just $ MultipleTypes (t' :| ts)) schema)
-          ]
+        Gen.choice [genValue ranges (set schemaType (Just $ SingleType t) schema), genValue ranges (set schemaType (Just $ MultipleTypes (t' :| ts)) schema)]
       Just (SingleType NullType) -> genNullValue
       Just (SingleType BooleanType) -> genBooleanValue
       Just (SingleType NumberType) -> genNumberValue (ranges ^. numberRange) schema
@@ -61,12 +55,7 @@ genBooleanValue = Aeson.Bool <$> Gen.bool
 genNumberValue :: NumberRange -> Schema -> Gen Aeson.Value
 genNumberValue (NumberRange nr) schema =
   (Aeson.Number . Scientific.fromFloatDigits) <$>
-  genBoundedReal
-    (schema ^. schemaExclusiveMinimum)
-    (schema ^. schemaMinimum)
-    (schema ^. schemaExclusiveMaximum)
-    (schema ^. schemaMaximum)
-    nr
+  genBoundedReal (schema ^. schemaExclusiveMinimum) (schema ^. schemaMinimum) (schema ^. schemaExclusiveMaximum) (schema ^. schemaMaximum) nr
 
 genIntegerValue :: IntegerRange -> Schema -> Gen Aeson.Value
 genIntegerValue (IntegerRange nr) schema =
@@ -83,7 +72,14 @@ genStringValue :: StringRange -> Schema -> Gen Aeson.Value
 genStringValue (StringRange sr) schema =
   case schema ^. schemaPattern of
     Just (StringConstraintPattern regexp) -> Aeson.String <$> genStringFromRegexp regexp
-    Nothing -> Aeson.String <$> genBoundedString (schema ^. schemaMinLength) (schema ^. schemaMaxLength) sr
+    Nothing ->
+      case schema ^. schemaFormat of
+        Just (StringConstraintFormat f) -> genWithFormat f
+        Nothing                         -> genUnformatted
+  where
+    genWithFormat "uuid" = Aeson.String <$> genStringFromRegexp "[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}"
+    genWithFormat _ = genUnformatted
+    genUnformatted = Aeson.String <$> genBoundedString (schema ^. schemaMinLength) (schema ^. schemaMaxLength) sr
 
 genObjectValue :: Ranges -> Schema -> Gen Aeson.Value
 genObjectValue ranges schema = (Aeson.Object . HashMap.fromList . join) <$> generatedFields
@@ -110,12 +106,11 @@ genArrayValue ranges schema =
               if uniqueItems
                 then genUniqueItems
                 else Gen.list
-        in listMaker (finalRange sz) (Gen.small $ genValue ranges itemSchema)
+         in listMaker (finalRange sz) (Gen.small $ genValue ranges itemSchema)
     Nothing -> Unconstrained.genArray ranges
   where
     ar = unArrayRange (ranges ^. arrayRange)
-    finalRange sz =
-      Range.linear (fromMaybe (Range.lowerBound sz ar) minItems) (fromMaybe (Range.upperBound sz ar) maxItems)
+    finalRange sz = Range.linear (fromMaybe (Range.lowerBound sz ar) minItems) (fromMaybe (Range.upperBound sz ar) maxItems)
     uniqueItems = maybe False unArrayConstraintUniqueItems (schema ^. schemaUniqueItems)
     maxItems = unArrayConstraintMaxItems <$> (schema ^. schemaMaxItems)
     minItems = unArrayConstraintMinItems <$> (schema ^. schemaMinItems)
