@@ -94,7 +94,7 @@ prop_constrainedString =
     let schema =
           (set schemaPattern (StringConstraintPattern <$> regexp) .
            set schemaMinLength (StringConstraintMinLength <$> minLength) .
-           set schemaMaxLength (StringConstraintMaxLength <$> maxLength) . set schemaFormat (StringConstraintFormat <$> (traceShow format format)))
+           set schemaMaxLength (StringConstraintMaxLength <$> maxLength) . set schemaFormat (StringConstraintFormat <$> format))
             (singleTypeSchema StringType)
     (Aeson.String v) <- forAll $ genConstrainedJSONValue sensibleRanges schema
     case regexp of
