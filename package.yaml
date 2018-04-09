@@ -2,11 +2,11 @@ name:                hedgehog-gen-json
 version:             0.2.0
 synopsis:            JSON generators for Hedgehog
 description:         Generate JSON values for Hedgehog tests
-homepage:            https://github.com/githubuser/haskell-hedgehog-gen-json#readme
+homepage:            hhttps://github.com/amrhassan/haskell-hedgehog-gen-json
 license:             MIT
 author:              Amr Hassan
 maintainer:          amr.hassan@gmail.com
-copyright:           2017 Amr Hassan
+copyright:           2018 Amr Hassan
 category:            Test
 extra-source-files:
 - README.md
