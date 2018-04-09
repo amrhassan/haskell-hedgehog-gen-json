@@ -15,6 +15,11 @@ module Hedgehog.Gen.JSON
   , ArrayRange(..)
   , ObjectRange(..)
   , sensibleRanges
+  , numberRange
+  , integerRange
+  , stringRange
+  , arrayRange
+  , objectRange
   ) where
 
 import           Control.Monad.Catch             (MonadThrow, throwM)
