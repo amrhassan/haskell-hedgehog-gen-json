@@ -110,7 +110,10 @@ instance Aeson.FromJSON Schema where
       obj .:? "minItems" <*>
       obj .:? "uniqueItems" <*>
       obj .:? "$ref" <*>
-      obj .:? "definitions"
+      obj .:? "definitions" <*>
+      obj .:? "anyOf" <*>
+      obj .:? "oneOf" <*>
+      obj .:? "allOf"
 
 newtype ToplevelSchema = ToplevelSchema {
   unToplevelSchema :: Schema
@@ -130,6 +133,18 @@ newtype AnyConstraintRef = AnyConstraintRef
 
 newtype AnyConstraintDefinitions = AnyConstraintDefinitions
   { unAnyConstraintDefinitions :: HM.HashMap Text Schema
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
+
+newtype AnyConstraintAllOf = AnyConstraintAllOf
+  { unAnyConstraintAllOf :: NonEmpty Schema
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
+
+newtype AnyConstraintOneOf = AnyConstraintOneOf
+  { unAnyConstraintOneOf :: NonEmpty Schema
+  } deriving (Generic, Eq, Show, Aeson.FromJSON)
+
+newtype AnyConstraintAnyOf = AnyConstraintAnyOf
+  { unAnyConstraintAnyOf :: NonEmpty Schema
   } deriving (Generic, Eq, Show, Aeson.FromJSON)
 
 newtype ArrayConstraintItems = ArrayConstraintItems
@@ -169,6 +184,9 @@ data Schema = Schema
   , _schemaUniqueItems      :: Maybe ArrayConstraintUniqueItems
   , _schemaRef              :: Maybe AnyConstraintRef
   , _schemaDefinitions      :: Maybe AnyConstraintDefinitions
+  , _schemaAnyOf            :: Maybe AnyConstraintAnyOf
+  , _schemaOneOf            :: Maybe AnyConstraintOneOf
+  , _schemaAllOf            :: Maybe AnyConstraintAllOf
   } deriving (Generic, Eq, Show)
 
 emptySchema :: Schema
@@ -194,6 +212,9 @@ emptySchema =
     , _schemaUniqueItems = Nothing
     , _schemaRef = Nothing
     , _schemaDefinitions = Nothing
+    , _schemaAnyOf = Nothing
+    , _schemaOneOf = Nothing
+    , _schemaAllOf = Nothing
     }
 
 makeLenses ''Schema

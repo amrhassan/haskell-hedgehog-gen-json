@@ -30,6 +30,18 @@ genToplevelValue ranges schema = genValue ranges (ToplevelSchema schema) schema
 genValue :: Ranges -> ToplevelSchema -> Schema -> Gen Aeson.Value
 genValue ranges tschema schema
   | isJust (schema ^. schemaRef) = genReferencedSchema ranges tschema schema
+  | isJust (schema ^. schemaAnyOf) = 
+    case schema ^. schemaAnyOf of
+      Just (AnyConstraintAnyOf ss) -> Gen.element (toList ss) >>= genValue ranges tschema
+      Nothing                      -> empty
+  | isJust (schema ^. schemaOneOf) = 
+    case schema ^. schemaOneOf of
+      Just (AnyConstraintOneOf ss) -> Gen.element (toList ss) >>= genValue ranges tschema
+      Nothing                      -> empty
+  | isJust (schema ^. schemaAllOf) = 
+    case schema ^. schemaAllOf of
+      Just (AnyConstraintAllOf ss) -> Gen.element (toList ss) >>= genValue ranges tschema
+      Nothing                      -> empty
   | isJust (schema ^. schemaEnum) =
     case schema ^. schemaEnum of
       Just (AnyConstraintEnum vs) -> (Gen.element . toList) vs
