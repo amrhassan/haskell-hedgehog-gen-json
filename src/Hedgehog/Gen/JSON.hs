@@ -57,7 +57,7 @@ genConstrainedJSON ranges schema = (LBS.toStrict . Aeson.encode) <$> genConstrai
 
 -- | Generator for arbitrary JSON values constrained by the given JSON Schema
 genConstrainedJSONValue :: Ranges -> Schema -> Gen Aeson.Value
-genConstrainedJSONValue = Constrained.genValue
+genConstrainedJSONValue = Constrained.genToplevelValue
 
 -- | Sensible ranges for arbitrary JSON values if you're too lazy to define some
 sensibleRanges :: Ranges
