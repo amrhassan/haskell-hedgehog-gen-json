@@ -140,16 +140,27 @@ prop_constrainedArray =
              else True)
         uniqueItems
 
+prop_constrainedValueFromReferencedSchema :: Property
+prop_constrainedValueFromReferencedSchema = 
+    property $ do
+        subSchema <- forAll genSchema
+        let schema = emptySchema { 
+          _schemaType = Just $ SingleType ArrayType, 
+          _schemaItems = Just $ ArrayConstraintItems $ emptySchema { _schemaRef = Just $ AnyConstraintRef "#/definitions/x" }, 
+          _schemaDefinitions = Just $ AnyConstraintDefinitions $ H.fromList [("x", subSchema)]
+          }
+        _ <- forAll $ genConstrainedJSONValue sensibleRanges schema
+        success
+
 prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
   where
-    schemaJson = "{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"integer\"},\"user_domain\":{\"type\":\"string\"}},\"required\":[\"user_id\"]}"
+    schemaJson = "{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"integer\"},\"user_domain\":{\"type\":\"string\"}},\"required\":[\"user_id\"], \"definitions\": {\"positiveInteger\": { \"type\": \"integer\", \"exclusiveMinimum\": 0 }}}"
     decoded :: Either P.String Schema = Aeson.eitherDecode schemaJson
     expected =
       (set schemaRequired (Just (ObjectConstraintRequired ["user_id"])) .
-       set
-         schemaProperties
-         ((Just . ObjectConstraintProperties) (H.fromList [("user_id", singleTypeSchema IntegerType), ("user_domain", singleTypeSchema StringType)])))
+       set schemaProperties ((Just . ObjectConstraintProperties) (H.fromList [("user_id", singleTypeSchema IntegerType), ("user_domain", singleTypeSchema StringType)])) .
+       set schemaDefinitions ((Just . AnyConstraintDefinitions) (H.fromList [("positiveInteger", (singleTypeSchema IntegerType) { _schemaExclusiveMinimum = Just (NumberConstraintExclusiveMinimum 0)})])))
         (singleTypeSchema ObjectType)
 
 genSchema :: Gen Schema
@@ -192,4 +203,5 @@ tests =
     , testProperty "Generates a constrained string" prop_constrainedString
     , testProperty "Generates a constrained object" prop_constrainedObject
     , testProperty "Generates a constrained array" prop_constrainedArray
+    , testProperty "Generates a value from a referenced schema" prop_constrainedValueFromReferencedSchema
     ]

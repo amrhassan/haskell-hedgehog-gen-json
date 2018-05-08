@@ -2,14 +2,17 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Hedgehog.Gen.JSON.Constrained
-  ( genValue
+  ( genToplevelValue
+  , genValue
   , Schema
   ) where
 
 import           Control.Lens
+import           Control.Monad
 import qualified Data.Aeson                             as Aeson
 import qualified Data.HashMap.Strict                    as HashMap
 import qualified Data.Scientific                        as Scientific
+import qualified Data.Text                              as Text
 import           Data.Time.RFC3339
 import qualified Data.Vector                            as Vector
 import           Hedgehog
@@ -21,8 +24,12 @@ import qualified Hedgehog.Gen.JSON.Unconstrained        as Unconstrained
 import qualified Hedgehog.Range                         as Range
 import           Protolude
 
-genValue :: Ranges -> Schema -> Gen Aeson.Value
-genValue ranges schema
+genToplevelValue :: Ranges -> Schema -> Gen Aeson.Value
+genToplevelValue ranges schema = genValue ranges (ToplevelSchema schema) schema
+
+genValue :: Ranges -> ToplevelSchema -> Schema -> Gen Aeson.Value
+genValue ranges tschema schema
+  | isJust (schema ^. schemaRef) = genReferencedSchema ranges tschema schema
   | isJust (schema ^. schemaEnum) =
     case schema ^. schemaEnum of
       Just (AnyConstraintEnum vs) -> (Gen.element . toList) vs
@@ -34,18 +41,18 @@ genValue ranges schema
   | otherwise =
     case schema ^. schemaType of
       Nothing -> Unconstrained.genValue ranges
-      Just (MultipleTypes (t :| [])) -> genValue ranges (set schemaType (Just $ SingleType t) schema)
+      Just (MultipleTypes (t :| [])) -> genValue ranges tschema (set schemaType (Just $ SingleType t) schema)
       Just (MultipleTypes (t :| [t'])) ->
-        Gen.choice [genValue ranges (set schemaType (Just $ SingleType t) schema), genValue ranges (set schemaType (Just $ SingleType t') schema)]
+        Gen.choice [genValue ranges tschema (set schemaType (Just $ SingleType t) schema), genValue ranges tschema (set schemaType (Just $ SingleType t') schema)]
       Just (MultipleTypes (t :| (t':ts))) ->
-        Gen.choice [genValue ranges (set schemaType (Just $ SingleType t) schema), genValue ranges (set schemaType (Just $ MultipleTypes (t' :| ts)) schema)]
+        Gen.choice [genValue ranges tschema (set schemaType (Just $ SingleType t) schema), genValue ranges tschema (set schemaType (Just $ MultipleTypes (t' :| ts)) schema)]
       Just (SingleType NullType) -> genNullValue
       Just (SingleType BooleanType) -> genBooleanValue
       Just (SingleType NumberType) -> genNumberValue (ranges ^. numberRange) schema
       Just (SingleType IntegerType) -> genIntegerValue (ranges ^. integerRange) schema
       Just (SingleType StringType) -> genStringValue (ranges ^. stringRange) schema
-      Just (SingleType ObjectType) -> genObjectValue ranges schema
-      Just (SingleType ArrayType) -> genArrayValue ranges schema
+      Just (SingleType ObjectType) -> genObjectValue ranges tschema schema
+      Just (SingleType ArrayType) -> genArrayValue ranges tschema schema
 
 genNullValue :: Gen Aeson.Value
 genNullValue = Gen.constant Aeson.Null
@@ -84,8 +91,13 @@ genStringValue (StringRange sr) schema =
     genWithFormat _ = genUnformatted
     genUnformatted = Aeson.String <$> genBoundedString (schema ^. schemaMinLength) (schema ^. schemaMaxLength) sr
 
-genObjectValue :: Ranges -> Schema -> Gen Aeson.Value
-genObjectValue ranges schema = (Aeson.Object . HashMap.fromList . join) <$> generatedFields
+genReferencedSchema :: Ranges -> ToplevelSchema -> Schema -> Gen Aeson.Value
+genReferencedSchema ranges tschema schema = maybe (fail ("Referenced schema not found for " <> show schema)) (genValue ranges tschema) (ref >>= refSchema)
+  where ref = (unAnyConstraintRef <$> (schema ^. schemaRef)) >>= Text.stripPrefix "#/definitions/"
+        refSchema r = unAnyConstraintDefinitions <$> (unToplevelSchema tschema) ^. schemaDefinitions >>= HashMap.lookup r
+
+genObjectValue :: Ranges -> ToplevelSchema -> Schema -> Gen Aeson.Value
+genObjectValue ranges tschema schema = (Aeson.Object . HashMap.fromList . join) <$> generatedFields
   where
     generatedFields = traverse (\(n, gen) -> (\m -> (\v -> (n, v)) <$> (maybeToList m)) <$> gen) generatedFieldsMaybes
     generatedFieldsMaybes =
@@ -94,13 +106,13 @@ genObjectValue ranges schema = (Aeson.Object . HashMap.fromList . join) <$> gene
          , (if n `elem` required
               then fmap Just
               else Gen.maybe)
-             (Gen.small $ genValue ranges s))) <$>
+             (Gen.small $ genValue ranges tschema s))) <$>
       HashMap.toList properties
     required = maybe [] unObjectConstraintRequired (schema ^. schemaRequired)
     properties = maybe HashMap.empty unObjectConstraintProperties (schema ^. schemaProperties)
 
-genArrayValue :: Ranges -> Schema -> Gen Aeson.Value
-genArrayValue ranges schema =
+genArrayValue :: Ranges -> ToplevelSchema -> Schema -> Gen Aeson.Value
+genArrayValue ranges tschema schema =
   case unArrayConstraintItems <$> (schema ^. schemaItems) of
     Just itemSchema ->
       Gen.sized $ \sz ->
@@ -109,7 +121,7 @@ genArrayValue ranges schema =
               if uniqueItems
                 then genUniqueItems
                 else Gen.list
-         in listMaker (finalRange sz) (Gen.small $ genValue ranges itemSchema)
+         in listMaker (finalRange sz) (Gen.small $ genValue ranges tschema itemSchema)
     Nothing -> Unconstrained.genArray ranges
   where
     ar = unArrayRange (ranges ^. arrayRange)

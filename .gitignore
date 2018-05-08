@@ -23,3 +23,4 @@ out
 .idea
 *.iml
 cabal.config
+.vscode
