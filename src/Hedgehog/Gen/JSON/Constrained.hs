@@ -29,7 +29,6 @@ genToplevelValue ranges schema = genValue ranges (ToplevelSchema schema) schema
 
 genValue :: Ranges -> ToplevelSchema -> Schema -> Gen Aeson.Value
 genValue ranges tschema schema
-  | isJust (schema ^. schemaRef) = genReferencedSchema ranges tschema schema
   | isJust (schema ^. schemaAnyOf) = 
     case schema ^. schemaAnyOf of
       Just (AnyConstraintAnyOf ss) -> Gen.element (toList ss) >>= genValue ranges tschema
@@ -40,8 +39,12 @@ genValue ranges tschema schema
       Nothing                      -> empty
   | isJust (schema ^. schemaAllOf) = 
     case schema ^. schemaAllOf of
-      Just (AnyConstraintAllOf ss) -> Gen.element (toList ss) >>= genValue ranges tschema
+      Just (AnyConstraintAllOf ss) -> do
+        schemas <- traverse (genResolveIfReferencing tschema) ss
+        combined <- eitherToGen $ foldl (\acc x -> acc >>= \a -> a *&* x) (Right emptySchema) schemas
+        genValue ranges tschema combined
       Nothing                      -> empty
+  | isJust (schema ^. schemaRef) = genReferencedSchema ranges tschema schema
   | isJust (schema ^. schemaEnum) =
     case schema ^. schemaEnum of
       Just (AnyConstraintEnum vs) -> (Gen.element . toList) vs
@@ -107,6 +110,22 @@ genReferencedSchema :: Ranges -> ToplevelSchema -> Schema -> Gen Aeson.Value
 genReferencedSchema ranges tschema schema = maybe (fail ("Referenced schema not found for " <> show schema)) (genValue ranges tschema) (ref >>= refSchema)
   where ref = (unAnyConstraintRef <$> (schema ^. schemaRef)) >>= Text.stripPrefix "#/definitions/"
         refSchema r = unAnyConstraintDefinitions <$> (unToplevelSchema tschema) ^. schemaDefinitions >>= HashMap.lookup r
+
+resolveIfReferencing :: ToplevelSchema -> Schema -> Either Text Schema
+resolveIfReferencing tschema schema =
+  case schema ^. schemaRef of
+    Just (AnyConstraintRef ref) -> maybeToEither ("Referenced schema not found for " <> show schema) ((Text.stripPrefix "#/definitions/" ref) >>= refSchema)
+    Nothing  -> Right schema
+  where 
+    refSchema :: Text -> Maybe Schema
+    refSchema r = unAnyConstraintDefinitions <$> (unToplevelSchema tschema) ^. schemaDefinitions >>= HashMap.lookup r
+
+genResolveIfReferencing :: ToplevelSchema -> Schema -> Gen Schema
+genResolveIfReferencing tschema schema = eitherToGen $ resolveIfReferencing tschema schema
+
+eitherToGen :: Either Text a -> Gen a
+eitherToGen (Left err) = fail (toS err)
+eitherToGen (Right x) = pure x
 
 genObjectValue :: Ranges -> ToplevelSchema -> Schema -> Gen Aeson.Value
 genObjectValue ranges tschema schema = (Aeson.Object . HashMap.fromList . join) <$> generatedFields

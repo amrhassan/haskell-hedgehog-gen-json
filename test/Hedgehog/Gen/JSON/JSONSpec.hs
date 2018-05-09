@@ -21,6 +21,7 @@ import Protolude
 import Test.Tasty
 import Test.Tasty.Hedgehog
 import Text.Regex.PCRE
+import qualified Data.List.NonEmpty as NonEmpty
 
 prop_generatedUnconstrainedJSON :: Property
 prop_generatedUnconstrainedJSON =
@@ -142,15 +143,29 @@ prop_constrainedArray =
 
 prop_constrainedValueFromReferencedSchema :: Property
 prop_constrainedValueFromReferencedSchema = 
-    property $ do
-        subSchema <- forAll genSchema
-        let schema = emptySchema { 
-          _schemaType = Just $ SingleType ArrayType, 
-          _schemaItems = Just $ ArrayConstraintItems $ emptySchema { _schemaRef = Just $ AnyConstraintRef "#/definitions/x" }, 
-          _schemaDefinitions = Just $ AnyConstraintDefinitions $ H.fromList [("x", subSchema)]
-          }
-        _ <- forAll $ genConstrainedJSONValue sensibleRanges schema
-        success
+  property $ do
+      subSchema <- forAll genSchema
+      let schema = emptySchema { 
+        _schemaType = Just $ SingleType ArrayType, 
+        _schemaItems = Just $ ArrayConstraintItems $ emptySchema { _schemaRef = Just $ AnyConstraintRef "#/definitions/x" }, 
+        _schemaDefinitions = Just $ AnyConstraintDefinitions $ H.fromList [("x", subSchema)]
+        }
+      _ <- forAll $ genConstrainedJSONValue sensibleRanges schema
+      success
+
+prop_constrainedValueFromreferencedAllOfSchemas :: Property
+prop_constrainedValueFromreferencedAllOfSchemas =
+  property $ do
+    x <- forAll $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 5 10)
+    y <- forAll $ Scientific.fromFloatDigits <$> Gen.double (Range.linearFrac 20 30)
+    let subschema1 = emptySchema { _schemaType = Just (SingleType IntegerType), _schemaMinimum = Just $ NumberConstraintMinimum x }
+    let subschema2 = emptySchema { _schemaType = Just (SingleType IntegerType), _schemaMaximum = Just $ NumberConstraintMaximum y }
+    let schema = emptySchema { 
+      _schemaAllOf = Just $ AnyConstraintAllOf $ NonEmpty.fromList [ emptySchema { _schemaRef = Just (AnyConstraintRef "#/definitions/x") }, emptySchema { _schemaRef = Just (AnyConstraintRef "#/definitions/y") }],
+      _schemaDefinitions = Just $ AnyConstraintDefinitions $ H.fromList [ ("x", subschema1), ("y", subschema2) ]
+      }
+    (Aeson.Number z) <- forAll $ genConstrainedJSONValue sensibleRanges schema
+    assert $ (truncate z :: Int) >= (truncate x :: Int) && (truncate z :: Int) <= (truncate y :: Int)
 
 prop_decodesSchema :: Property
 prop_decodesSchema = property $ decoded === Right expected
@@ -204,4 +219,5 @@ tests =
     , testProperty "Generates a constrained object" prop_constrainedObject
     , testProperty "Generates a constrained array" prop_constrainedArray
     , testProperty "Generates a value from a referenced schema" prop_constrainedValueFromReferencedSchema
+    , testProperty "Generates a value from aggregated allOf referenced schemas" prop_constrainedValueFromreferencedAllOfSchemas
     ]
